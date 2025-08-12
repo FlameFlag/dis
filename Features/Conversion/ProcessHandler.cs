@@ -9,7 +9,7 @@ public sealed class ProcessHandler(ILogger logger, CodecParser codecParser, Stre
     private const string NoStreamError = "There is no video or audio stream in the file";
     private const string FastStartParam = "-movflags +faststart";
 
-    public IConversion? ConfigureConversion(Settings o, IList<IStream> streams, string outP, TrimSettings? trimSettings)
+    public IConversion? ConfigureConversion(Settings settings, IList<IStream> streams, string outP, TrimSettings? trimSettings)
     {
         var videoStream = streams.OfType<IVideoStream>().FirstOrDefault();
         var audioStream = streams.OfType<IAudioStream>().FirstOrDefault();
@@ -20,14 +20,14 @@ public sealed class ProcessHandler(ILogger logger, CodecParser codecParser, Stre
             return default;
         }
 
-        var parameters = new List<string> { $"-crf {o.Crf}" };
+        var parameters = new List<string> { $"-crf {settings.Crf}" };
 
         // Add trim parameters first if provided
         if (trimSettings is not null)
             parameters.Insert(0, trimSettings.GetFFmpegArgs());
 
         // Add faststart for web playback formats
-        var isWebPlayBackFormat = o.VideoCodec is "libx264" or "h264" ||
+        var isWebPlayBackFormat = settings.VideoCodec is "libx264" or "h264" ||
                                  outP.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
                                  outP.EndsWith(".mov", StringComparison.OrdinalIgnoreCase);
         if (isWebPlayBackFormat)
@@ -40,18 +40,18 @@ public sealed class ProcessHandler(ILogger logger, CodecParser codecParser, Stre
             .SetPixelFormat(PixelFormat.yuv420p)
             .SetPreset(ConversionPreset.VerySlow);
 
-        ConfigureVideoStream(conversion, videoStream, o);
-        ConfigureAudioStream(conversion, audioStream, o);
+        ConfigureVideoStream(conversion, videoStream, settings);
+        ConfigureAudioStream(conversion, audioStream, settings);
 
         conversion.SetOutput(outP);
         return conversion;
     }
 
-    private void ConfigureVideoStream(IConversion conversion, IVideoStream? videoStream, Settings o)
+    private void ConfigureVideoStream(IConversion conversion, IVideoStream? videoStream, Settings settings)
     {
         if (videoStream is null) return;
 
-        var videoCodec = codecParser.GetCodec(o.VideoCodec);
+        var videoCodec = codecParser.GetCodec(settings.VideoCodec);
         conversion.AddStream(videoStream);
 
         switch (videoCodec)
@@ -66,22 +66,22 @@ public sealed class ProcessHandler(ILogger logger, CodecParser codecParser, Stre
                 break;
 
             default:
-                conversion.UseMultiThread(o.MultiThread);
+                conversion.UseMultiThread(settings.MultiThread);
                 break;
         }
 
-        if (!string.IsNullOrEmpty(o.Resolution))
-            configurator.SetResolution(videoStream, o.Resolution);
+        if (!string.IsNullOrEmpty(settings.Resolution))
+            configurator.SetResolution(videoStream, settings.Resolution);
     }
 
-    private static void ConfigureAudioStream(IConversion conversion, IAudioStream? audioStream, Settings o)
+    private static void ConfigureAudioStream(IConversion conversion, IAudioStream? audioStream, Settings settings)
     {
         if (audioStream is null) return;
 
-        if (o.AudioBitrate.HasValue)
-            conversion.SetAudioBitrate((long)(o.AudioBitrate * 1000));
+        if (settings.AudioBitrate.HasValue)
+            conversion.SetAudioBitrate((long)(settings.AudioBitrate * 1000));
 
-        var audioCodec = o.VideoCodec is "vp8" or "vp9" or "av1" ? AudioCodec.libopus : AudioCodec.aac;
+        var audioCodec = settings.VideoCodec is "vp8" or "vp9" or "av1" ? AudioCodec.libopus : AudioCodec.aac;
         audioStream.SetCodec(audioCodec);
         conversion.AddStream(audioStream);
     }

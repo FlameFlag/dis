@@ -308,7 +308,7 @@ public sealed class RootCommand(
     private async Task Download(
         IEnumerable<Uri> links, 
         List<string> videos, 
-        Settings options, 
+        Settings settings, 
         TrimSettings? trimSettings,
         Dictionary<Uri, RunResult<VideoData>> videoMetadata)
     {
@@ -321,7 +321,7 @@ public sealed class RootCommand(
 
         foreach (var link in list)
         {
-            var downloadOptions = new DownloadOptions(link, options, trimSettings);
+            var downloadOptions = new DownloadOptions(link, settings, trimSettings);
 
             if (!videoMetadata.ContainsKey(link))
             {
@@ -350,16 +350,16 @@ public sealed class RootCommand(
             AnsiConsole.MarkupLine($"Downloaded video to: [green]{path}[/]");
 
         // Convert videos with their metadata
-        await Convert(videos.Select(path => (path, pathToMetadata.GetValueOrDefault(path))), options, null);
+        await Convert(videos.Select(path => (path, pathToMetadata.GetValueOrDefault(path))), settings, null);
     }
 
-    private async Task Convert(IEnumerable<(string path, RunResult<VideoData>?)> videos, Settings options, TrimSettings? trimSettings)
+    private async Task Convert(IEnumerable<(string path, RunResult<VideoData>?)> videos, Settings settings, TrimSettings? trimSettings)
     {
         foreach (var (path, fetchResult) in videos)
         {
             try
             {
-                await converter.ConvertVideo(path, fetchResult ?? null, options, trimSettings);
+                await converter.ConvertVideo(path, fetchResult ?? null, settings, trimSettings);
             }
             catch (Exception ex)
             {

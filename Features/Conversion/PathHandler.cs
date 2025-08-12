@@ -38,11 +38,11 @@ public sealed class PathHandler(CodecParser codecParser)
     /// <summary>
     /// Constructs the file path for the output file based on the provided options and the path of the compressed file.
     /// </summary>
-    /// <param name="o">The parsed options for file processing.</param>
+    /// <param name="settings">The parsed options for file processing.</param>
     /// <param name="cmpPath">The path of the compressed file.</param>
     /// <returns>The constructed file path for the output file.</returns>
     /// <exception cref="Exception">Thrown when the original file name cannot be retrieved from the compressed file path.</exception>
-    public string ConstructFilePath(Settings o, string cmpPath)
+    public string ConstructFilePath(Settings settings, string cmpPath)
     {
         var id = Guid.NewGuid().ToString()[..4];
 
@@ -51,7 +51,7 @@ public sealed class PathHandler(CodecParser codecParser)
         if (orgName is null)
             throw new FileNotFoundException("Could not get the original file name");
 
-        var iniOutPath = Path.Combine(o.Output!, orgName);
+        var iniOutPath = Path.Combine(settings.Output!, orgName);
 
         var orgExt = Path.GetExtension(cmpPath);
 
@@ -62,9 +62,9 @@ public sealed class PathHandler(CodecParser codecParser)
             : orgName;
 
         // If random file names are enabled, use the id as the file name
-        if (o.RandomFileName)
+        if (settings.RandomFileName)
             outName = $"{id}{orgExt}";
 
-        return Path.Combine(o.Output!, outName);
+        return Path.Combine(settings.Output!, outName);
     }
 }
