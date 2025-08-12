@@ -9,13 +9,6 @@ public sealed class ProcessHandler(ILogger logger, CodecParser codecParser, Stre
     private const string NoStreamError = "There is no video or audio stream in the file";
     private const string FastStartParam = "-movflags +faststart";
 
-    public static void SetTimeStamps(string path, DateTime date)
-    {
-        File.SetCreationTime(path, date);
-        File.SetLastWriteTime(path, date);
-        File.SetLastAccessTime(path, date);
-    }
-
     public IConversion? ConfigureConversion(Settings o, IList<IStream> streams, string outP, TrimSettings? trimSettings)
     {
         var videoStream = streams.OfType<IVideoStream>().FirstOrDefault();

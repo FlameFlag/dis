@@ -59,7 +59,12 @@ public sealed class Converter(
                         };
                         await conversion.Start();
                     });
-                if (fetchResult?.Data.UploadDate != null) ProcessHandler.SetTimeStamps(outP, fetchResult.Data.UploadDate.Value);
+                if (fetchResult?.Data.UploadDate != null)
+                {
+                    File.SetCreationTime(outP, fetchResult.Data.UploadDate.Value);
+                    File.SetLastWriteTime(outP, fetchResult.Data.UploadDate.Value);
+                    File.SetLastAccessTime(outP, fetchResult.Data.UploadDate.Value);
+                }
             }
             catch (Exception)
             {
