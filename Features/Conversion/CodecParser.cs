@@ -21,7 +21,7 @@ public sealed class CodecParser(VideoCodecs videoCodecs)
     private VideoCodec ParseCodec(string? inputCodec)
     {
         // If the input string is null, return the default video codec
-        if (inputCodec is null)
+        if (string.IsNullOrWhiteSpace(inputCodec))
             return VideoCodec.libx264;
 
         foreach (var (key, value) in videoCodecs.Codecs)
