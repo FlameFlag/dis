@@ -45,7 +45,8 @@ public sealed class Settings : CommandSettings
                  av1, libaom-av1 - AV1 is recommended for 4K
                  """)]
     [CommandOption("--video-codec")]
-    public string? VideoCodec { get; init; }
+    [DefaultValue("libx264")]
+    public required string VideoCodec { get; init; }
 
     [Description("Output audio bitrate (in kbit/s)")]
     [CommandOption("--audio-bitrate")]

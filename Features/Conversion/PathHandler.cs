@@ -17,7 +17,7 @@ public sealed class PathHandler(CodecParser codecParser)
     /// <param name="file">The original file path.</param>
     /// <param name="codec">The codec used for compression, can be null.</param>
     /// <returns>The new file path with the appropriate extension for the compressed file.</returns>
-    public string GetCompressPath(string file, string? codec)
+    public string GetCompressPath(string file, string codec)
     {
         var videoCodec = codecParser.GetCodec(codec);
 
