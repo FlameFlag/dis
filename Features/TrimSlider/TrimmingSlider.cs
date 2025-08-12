@@ -11,52 +11,92 @@ public sealed class TrimmingSlider(TimeSpan duration)
 
     private readonly SliderState _state = new(duration);
 
+    private volatile bool _cancelRequested;
+
     public string ShowSlider()
     {
-        while (true)
+        var result = string.Empty;
+        Console.CancelKeyPress += Console_CancelKeyPress;
+
+        try
         {
-            RenderInterface();
-
-            var key = AnsiConsole.Console.Input.ReadKey(true);
-            if (key == null) continue;
-
-            if (_state.IsTypingNumber)
+            AnsiConsole.Console.AlternateScreen(() =>
             {
-                HandleNumberInput(key.Value);
-                continue;
-            }
+                while (!_cancelRequested)
+                {
+                    RenderInterface();
 
-            if (HandleNavigationKey(key.Value))
-            {
-                return FormatResult();
-            }
+                    ConsoleKeyInfo? key = null;
+                    // Loop to wait for a key or cancellation
+                    while (key is null && !_cancelRequested)
+                    {
+                        if (Console.KeyAvailable) key = Console.ReadKey(intercept: true);
+                        else
+                        {
+                            // IMPORTANT: Small delay to prevent a busy-wait
+                            // loop This makes the CPU usage low while waiting
+                            // for input or cancellation.
+                            Thread.Sleep(50);
+                        }
+                    }
 
-            _state.RoundPositions();
+                    // If we broke out
+                    if (_cancelRequested) break; // Exit the main ShowSlider loop immediately
+
+                    // Now 'key' is guaranteed not to be null if we reached here
+                    var shouldBreak = ProcessKeyPress(key!.Value, out result);
+                    if (shouldBreak) break;
+
+                    _state.RoundPositions();
+                }
+            });
         }
+        finally
+        {
+            Console.CancelKeyPress -= Console_CancelKeyPress;
+        }
+
+        return _cancelRequested ? string.Empty : result;
+    }
+
+    private void Console_CancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;
+        _cancelRequested = true;
+
+        // Manually send the ANSI escape code to exit the alternate screen buffer
+        AnsiConsole.Console.Write(new ControlCode("\e\u005b\u003f\u0031\u0030\u0034\u0039\u006c"));
+    }
+    
+    private bool ProcessKeyPress(ConsoleKeyInfo key, out string outputResult)
+    {
+        outputResult = string.Empty;
+
+        if (_state.IsTypingNumber)
+        {
+            HandleNumberInput(key);
+            return false;
+        }
+
+        if (!HandleNavigationKey(key)) return false;
+        var startPosition = _state.StartPosition.ToString(CultureInfo.InvariantCulture);
+        var endPosition = _state.EndPosition.ToString(CultureInfo.InvariantCulture);
+        outputResult = $"{startPosition}-{endPosition}";
+        return true;
     }
 
     private void RenderInterface()
     {
-        HideCursor();
-        StringWriter output = new();
-        var console = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Out = new AnsiConsoleOutput(output)
-        });
-
-        console.Clear();
-        DrawSlider(console);
-        DrawInstructions(console);
-
+        AnsiConsole.Cursor.Hide();
         AnsiConsole.Clear();
-        AnsiConsole.Write(output.ToString());
-        ShowCursor();
-    }
 
-    private void DrawInstructions(IAnsiConsole console)
-        => console.Write(_state.IsTypingNumber
-                ? DisplayStrings.GetTimeInput(_state.NumberBuffer)
-                : DisplayStrings.Controls);
+        DrawSlider(AnsiConsole.Console);
+        AnsiConsole.Console.Write(_state.IsTypingNumber
+            ? DisplayStrings.GetTimeInput(_state.NumberBuffer)
+            : DisplayStrings.Controls);
+
+        AnsiConsole.Cursor.Show();
+    }
 
     private void HandleNumberInput(ConsoleKeyInfo key)
     {
@@ -92,7 +132,7 @@ public sealed class TrimmingSlider(TimeSpan duration)
 
     private bool HandleNavigationKey(ConsoleKeyInfo key)
     {
-        if (key.Key == ConsoleKey.Escape)
+        if (key.Key is ConsoleKey.Escape)
         {
             _state.CancelOperation();
             return true;
@@ -104,49 +144,26 @@ public sealed class TrimmingSlider(TimeSpan duration)
 
         return key.Key switch
         {
-            ConsoleKey.D1 => SetResult(_state.SelectStart()),
-            ConsoleKey.D2 => SetResult(_state.SelectEnd()),
-            ConsoleKey.Spacebar => SetResult(_state.StartTyping()),
+            ConsoleKey.D1 => _state.SelectStart(),
+            ConsoleKey.D2 => _state.SelectEnd(),
+            ConsoleKey.Spacebar => _state.StartTyping(),
             ConsoleKey.Enter => true,
-            ConsoleKey.UpArrow => SetResult(_state.AdjustValue(Constants.MinuteStep, _duration)),
-            ConsoleKey.DownArrow => SetResult(_state.AdjustValue(-Constants.MinuteStep, _duration)),
-            ConsoleKey.LeftArrow => SetResult(_state.AdjustValue(-step, _duration)),
-            ConsoleKey.RightArrow => SetResult(_state.AdjustValue(step, _duration)),
+            ConsoleKey.UpArrow => _state.AdjustValue(Constants.MinuteStep, _duration),
+            ConsoleKey.DownArrow => _state.AdjustValue(-Constants.MinuteStep, _duration),
+            ConsoleKey.LeftArrow => _state.AdjustValue(-step, _duration),
+            ConsoleKey.RightArrow => _state.AdjustValue(step, _duration),
             _ => false
         };
     }
 
-    private static bool SetResult(bool result) => result;
-
     private void DrawSlider(IAnsiConsole console)
     {
-        var slider = CreateSliderVisualization();
+        var slider = string.Join("", _state.GenerateSliderCharacters(Constants.SliderWidth));
 
-        console.MarkupLine($"\nVideo duration: [blue]{FormatTime(_duration)}[/]");
         console.MarkupLine(
-            $"Selected range: [green]{_state.FormatRange()}[/]\n");
-        console.MarkupLine($"Currently adjusting: [blue]{(_state.IsAdjustingStart ? "Start" : "End")}[/] position\n");
+            $"${Environment.NewLine}Video duration: [blue]{(int)_duration.TotalMinutes:D2}:{_duration.Seconds:D2}.{_duration.Milliseconds:D3}[/]");
+        console.MarkupLine($"Selected range: [green]{_state.FormatRange()}[/]{Environment.NewLine}");
+        console.MarkupLine($"Currently adjusting: [blue]{(_state.IsAdjustingStart ? "Start" : "End")}[/] position{Environment.NewLine}");
         console.MarkupLine($"0s {slider} {_duration.TotalSeconds:F2}s");
     }
-
-    private string CreateSliderVisualization() =>
-        string.Join("", _state.GenerateSliderCharacters(Constants.SliderWidth));
-
-    private static string FormatTime(TimeSpan time) =>
-        $"{(int)time.TotalMinutes:D2}:{time.Seconds:D2}.{time.Milliseconds:D3}";
-
-    private string FormatResult()
-    {
-        return IsCancelled()
-            ? string.Empty
-            : $"{_state.StartPosition.ToString(CultureInfo.InvariantCulture)}-{_state.EndPosition.ToString(CultureInfo.InvariantCulture)}";
-    }
-
-    private bool IsCancelled() => _state.IsCancelled;
-
-    private static void HideCursor()
-        => AnsiConsole.Cursor.Hide();
-
-    private static void ShowCursor()
-        => AnsiConsole.Cursor.Show();
 }
