@@ -306,9 +306,9 @@ public sealed class RootCommand(
     }
 
     private async Task Download(
-        IEnumerable<Uri> links, 
-        List<string> videos, 
-        Settings settings, 
+        IEnumerable<Uri> links,
+        List<string> videos,
+        Settings settings,
         TrimSettings? trimSettings,
         Dictionary<Uri, RunResult<VideoData>> videoMetadata)
     {
