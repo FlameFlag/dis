@@ -67,7 +67,7 @@ public sealed class TrimmingSlider(TimeSpan duration)
         // Manually send the ANSI escape code to exit the alternate screen buffer
         AnsiConsole.Console.Write(new ControlCode("\e\u005b\u003f\u0031\u0030\u0034\u0039\u006c"));
     }
-    
+
     private bool ProcessKeyPress(ConsoleKeyInfo key, out string outputResult)
     {
         outputResult = string.Empty;

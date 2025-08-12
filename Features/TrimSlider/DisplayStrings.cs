@@ -4,6 +4,16 @@ namespace dis.Features.TrimSlider;
 
 public static class DisplayStrings
 {
+    private static readonly Dictionary<string, string> Rows = new() {
+        { "[aqua]1[/] / [aqua]2[/]", "Select [aqua]start/end[/] position"},
+        { "[yellow]←[/] / [yellow]→[/]", "Adjust by seconds"},
+        { "[yellow]↑[/] / [yellow]↓[/]", "Adjust by minutes"},
+        { "[lime]Shift[/] + [yellow]←[/] / [yellow]→[/]", "Adjust by [blue]milliseconds[/]"},
+        { "[aqua]Space[/]", "Enter exact time"},
+        { "[green]Enter[/]", "Confirm"},
+        { "[red]Esc[/]", "Cancel"}
+    };
+
     private static Table GetTimeInputTable(string currentInput)
     {
         var table = new Table()
@@ -31,13 +41,7 @@ public static class DisplayStrings
             .AddColumn(new TableColumn("Key").PadLeft(1).PadRight(1))
             .AddColumn(new TableColumn("Action").PadLeft(1).PadRight(1));
 
-        table.AddRow("[aqua]1[/] / [aqua]2[/]", "Select [aqua]start/end[/] position");
-        table.AddRow("[yellow]←[/] / [yellow]→[/]", "Adjust by seconds");
-        table.AddRow("[yellow]↑[/] / [yellow]↓[/]", "Adjust by minutes");
-        table.AddRow("[lime]Shift[/] + [yellow]←[/] / [yellow]→[/]", "Adjust by [blue]milliseconds[/]");
-        table.AddRow("[aqua]Space[/]", "Enter exact time");
-        table.AddRow("[green]Enter[/]", "Confirm");
-        table.AddRow("[red]Esc[/]", "Cancel");
+        foreach (var (left, right) in Rows) table.AddRow(left, right);
 
         return table;
     }
