@@ -51,9 +51,8 @@ required packages to build **dis** 🎥
 
 ### Updating dependencies on Nix
 
-1. Run `nix run nixpkgs#dotnet-sdk -- restore --packages out`
-2. Run the script `nix-shell -p dotnet-sdk nuget-to-nix --run "nuget-to-nix out > deps.nix"`
-3. Run formatter `nix run nixpkgs#nixfmt-rfc-style -- deps.nix`
+1. Run `nix run nixpkgs#dotnetCorePackages.sdk_10_0-bin -- restore --packages out`
+2. Run the script `nix-shell -p dotnetCorePackages.sdk_10_0-bin nuget-to-json --run "nuget-to-json out > deps.nix"`
 
 ## Installation
 
