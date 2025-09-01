@@ -28,10 +28,10 @@
     '';
 
     meta = {
-      homepage = "https://github.com/DontEatOreo/dis";
+      homepage = "https://github.com/FlameFlag/dis";
       license = lib.licenses.agpl3Plus;
       platforms = lib.platforms.unix;
-      maintainers = [ lib.maintainers.donteatoreo ];
+      maintainers = [ lib.maintainers.FlameFlag ];
     };
   };
 }

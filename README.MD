@@ -1,8 +1,8 @@
 # dis 🎥
 
-[![GitHub license](https://img.shields.io/github/license/DontEatOreo/dis)](https://github.com/DontEatOreo/dis/blob/master/LICENSE)
-[![GitHub release](https://img.shields.io/github/release/DontEatOreo/dis)](https://github.com/DontEatOreo/dis/releases)
-[![GitHub issues](https://img.shields.io/github/issues/DontEatOreo/dis)](https://github.com/DontEatOreo/dis/issues)
+[![GitHub license](https://img.shields.io/github/license/FlameFlag/dis)](https://github.com/FlameFlag/dis/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/FlameFlag/dis)](https://github.com/FlameFlag/dis/releases)
+[![GitHub issues](https://img.shields.io/github/issues/FlameFlag/dis)](https://github.com/FlameFlag/dis/issues)
 
 ![292BEC87](https://github.com/user-attachments/assets/395cbfa1-f86c-403c-a40e-c33ee9200ce3)
 
@@ -46,7 +46,7 @@ true --configuration Release --runtime <rid>`
 
 ### Simply run `nix build .#default`
 
-Alternatively you can also invoke a `nix shell github:DontEatOreo/dis` with the
+Alternatively you can also invoke a `nix shell github:FlameFlag/dis` with the
 required packages to build **dis** 🎥
 
 ### Updating dependencies on Nix
@@ -63,7 +63,7 @@ download them from their official websites or use your package manager of
 choice.
 
 You can then download the latest release of **dis** 🎥 from
-the [Releases](https://github.com/DontEatOreo/dis/releases)
+the [Releases](https://github.com/FlameFlag/dis/releases)
 tab on GitHub. Alternatively, you can clone this
 repository and build the project yourself using [dotnet
 publish](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-publish)
@@ -73,7 +73,7 @@ publish](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-publish)
 ### Using `nix profile`
 
 ```bash
-nix profile install github:DontEatOreo/dis
+nix profile install github:FlameFlag/dis
 ```
 
 ### Using flakes
@@ -86,7 +86,7 @@ You will need to add **dis** 🎥 to your inputs and pass it down your outputs
 
   inputs = {
     # ...
-    dis.url = "github:DontEatOreo/dis";
+    dis.url = "github:FlameFlag/dis";
     dis.inputs.nixpkgs.follows = "nixpkgs";
     # ...
   };
@@ -168,4 +168,4 @@ report issues, request features, or submit pull requests on GitHub.
 ## License
 
 **dis** is licensed under the
-[AGPLv3](https://github.com/DontEatOreo/dis/blob/master/LICENSE).
+[AGPLv3](https://github.com/FlameFlag/dis/blob/master/LICENSE).
