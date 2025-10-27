@@ -42,20 +42,20 @@ public sealed class RootCommand(
                 case false when !isUrl:
                     return ValidationResult.Error($"Invalid input file or link: {input}");
                 case true:
-                {
-                    if (!type.TryGetContentType(input, out var contentType))
                     {
-                        logger.Warning("Could not determine content type for file: {Input}", input);
-                        continue;
+                        if (!type.TryGetContentType(input, out var contentType))
+                        {
+                            logger.Warning("Could not determine content type for file: {Input}", input);
+                            continue;
+                        }
+
+                        var isMedia = contentType.Contains("video", StringComparison.OrdinalIgnoreCase) ||
+                                      contentType.Contains("audio", StringComparison.OrdinalIgnoreCase);
+                        if (!isMedia)
+                            return ValidationResult.Error($"Input file is not a recognized video/audio type: {input} (Type: {contentType})");
+
+                        break;
                     }
-
-                    var isMedia = contentType.Contains("video", StringComparison.OrdinalIgnoreCase) ||
-                                  contentType.Contains("audio", StringComparison.OrdinalIgnoreCase);
-                    if (!isMedia)
-                        return ValidationResult.Error($"Input file is not a recognized video/audio type: {input} (Type: {contentType})");
-
-                    break;
-                }
             }
         }
         return ValidationResult.Success();
@@ -65,11 +65,11 @@ public sealed class RootCommand(
     {
         if (!string.IsNullOrEmpty(output) && !Directory.Exists(output))
             return ValidationResult.Error($"Output directory does not exist: {output}");
-        
+
         return ValidationResult.Success();
     }
 
-    private static ValidationResult ValidateCrf(int crf)
+    private ValidationResult ValidateCrf(int crf)
     {
         const int min = 6;
         const int max = 63;
@@ -81,24 +81,24 @@ public sealed class RootCommand(
             case < min or > max:
                 return ValidationResult.Error($"CRF value must be between {min} and {max} (Recommended: {minRecommended}-{maxRecommended})");
             case < minRecommended:
-                AnsiConsole.MarkupLine($"[yellow]Warning: CRF value {crf} is below the recommended minimum of {minRecommended}. This may result in very large files.[/]");
+                logger.Warning("CRF value {Crf} is below the recommended minimum of {MinRecommended}. This may result in very large files.", crf, minRecommended);
                 break;
             case > maxRecommended:
-                AnsiConsole.MarkupLine($"[yellow]Warning: CRF value {crf} is above the recommended maximum of {maxRecommended}. This may result in poor quality.[/]");
+                logger.Warning("CRF value {Crf} is above the recommended maximum of {MaxRecommended}. This may result in poor quality.", crf, maxRecommended);
                 break;
         }
 
         return ValidationResult.Success();
     }
 
-    private static ValidationResult ValidateAudioBitrate(int? audioBitrate)
+    private ValidationResult ValidateAudioBitrate(int? audioBitrate)
     {
         switch (audioBitrate)
         {
             case null:
                 return ValidationResult.Success();
             case < 128 or > 192:
-                AnsiConsole.MarkupLine("[yellow]Warning: Audio bitrate values outside the 128-192 kbps range are not generally recommended.[/]");
+                logger.Warning("Audio bitrate values outside the 128-192 kbps range are not generally recommended.");
                 break;
         }
 
@@ -110,7 +110,7 @@ public sealed class RootCommand(
     private ValidationResult ValidateResolution(string? resolution)
     {
         if (string.IsNullOrEmpty(resolution)) return ValidationResult.Success();
-        
+
         var validResolutionsText = string.Join(", ", validResolutions.Resolutions.Select(r => $"{r}p"));
         var isValid = validResolutions.Resolutions
             .Any(res => res.ToString().Equals(resolution.Replace("p", ""), StringComparison.InvariantCultureIgnoreCase));
@@ -119,7 +119,7 @@ public sealed class RootCommand(
             ? ValidationResult.Error($"Invalid resolution: {resolution}. Valid options are: {validResolutionsText}")
             : ValidationResult.Success();
     }
-    
+
     private ValidationResult ValidateVideoCodec(string? videoCodec)
     {
         if (string.IsNullOrEmpty(videoCodec)) return ValidationResult.Success();
@@ -147,7 +147,7 @@ public sealed class RootCommand(
 
         return validationResults.FirstOrDefault(result => !result.Successful) ?? base.Validate(context, settings);
     }
-    
+
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         if (IsVersionRequest())
@@ -174,7 +174,7 @@ public sealed class RootCommand(
             logger.Information("Trimming was cancelled by the user.");
             return 0;
         }
-        
+
         var downloadedItems = await DownloadAllAsync(links, settings, trimSettings, cancellationToken);
         var localItems = localFiles.Select(path => new ConversionItem(path, null)).ToList();
 
@@ -206,10 +206,10 @@ public sealed class RootCommand(
     }
 
     private static bool IsVersionRequest() => VersionArgs.Any(Environment.GetCommandLineArgs().Contains);
-    
-    private static void PrintVersion() => AnsiConsole.MarkupLine(typeof(RootCommand).Assembly.GetName().Version!.ToString(3));
 
-    private (List<Uri> Uris, List<string> FilePaths) CategorizeInputs(IEnumerable<string> inputs)
+    private static void PrintVersion() => AnsiConsole.WriteLine(typeof(RootCommand).Assembly.GetName().Version!.ToString(3));
+
+    private static (List<Uri> Uris, List<string> FilePaths) CategorizeInputs(IEnumerable<string> inputs)
     {
         var uris = new List<Uri>();
         var filePaths = new List<string>();
@@ -226,7 +226,7 @@ public sealed class RootCommand(
         }
         return (uris, filePaths);
     }
-    
+
     private async Task<TrimSettings?> GetTrimSettingsAsync(Settings settings, List<Uri> links, List<string> localFiles, CancellationToken ct)
     {
         if (!settings.Trim) return null;
@@ -252,7 +252,7 @@ public sealed class RootCommand(
 
         return ShowTrimSlider(duration.Value);
     }
-    
+
     private async Task<TimeSpan?> GetDurationFromFileAsync(string filePath, CancellationToken ct)
     {
         try
@@ -273,8 +273,8 @@ public sealed class RootCommand(
         {
             var downloadOptions = new DownloadOptions(link, settings, null);
             var runResult = await downloader.FetchMetadata(downloadOptions, ct);
-            return runResult?.Data?.Duration is not null 
-                ? TimeSpan.FromSeconds(runResult.Data.Duration.Value) 
+            return runResult?.Data?.Duration is not null
+                ? TimeSpan.FromSeconds(runResult.Data.Duration.Value)
                 : null;
         }
         catch (Exception ex)
@@ -303,20 +303,23 @@ public sealed class RootCommand(
         logger.Warning("Invalid trim input '{TrimResult}'. Skipping trim.", trimResult);
         return null;
     }
-    
+
     private async Task<IEnumerable<ConversionItem>> DownloadAllAsync(IEnumerable<Uri> links, Settings settings, TrimSettings? trimSettings, CancellationToken ct)
     {
         var downloadedItems = new List<ConversionItem>();
         var linkList = links.ToList();
-        
+
         if (linkList.Count == 0) return downloadedItems;
 
         logger.Information("Starting download of {Count} links...", linkList.Count);
-        
+
         foreach (var link in linkList)
         {
             ct.ThrowIfCancellationRequested();
             var downloadOptions = new DownloadOptions(link, settings, trimSettings);
+
+            if (trimSettings is not null) logger.Information("Downloading video section: {Section}", trimSettings.GetDownloadSection());
+
             var metadata = await downloader.FetchMetadata(downloadOptions, ct);
             var result = await downloader.DownloadTask(downloadOptions, metadata, ct);
 
@@ -326,7 +329,7 @@ public sealed class RootCommand(
                 continue;
             }
 
-            AnsiConsole.MarkupLine($"Downloaded video to: [green]{result.OutPath}[/]");
+            logger.Information("Downloaded video to: {Path}", result.OutPath);
             downloadedItems.Add(new ConversionItem(result.OutPath, result.fetchResult));
         }
 
@@ -337,9 +340,9 @@ public sealed class RootCommand(
     {
         var itemList = items.ToList();
         if (itemList.Count == 0) return;
-        
+
         logger.Information("Starting conversion of {Count} files...", itemList.Count);
-        
+
         foreach (var (path, fetchResult) in itemList)
         {
             ct.ThrowIfCancellationRequested();
@@ -349,12 +352,11 @@ public sealed class RootCommand(
                 // For downloaded files, trimming may have already been done by yt-dlp if possible
                 // Applying it again with FFmpeg for local files is the intended logic
                 await converter.ConvertVideo(path, fetchResult, settings, trimSettings);
-                AnsiConsole.MarkupLine($"Converted video: [green]{Path.GetFileName(path)}[/]");
+                logger.Information("Processed video: {FileName}", Path.GetFileName(path));
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to convert video: {Path}", path);
-                AnsiConsole.MarkupLine($"[red]Failed to convert video: {Path.GetFileName(path)} - {ex.Message}[/]");
             }
         }
     }
@@ -362,7 +364,7 @@ public sealed class RootCommand(
     private void CleanupTempDirectories()
     {
         if (globals.TempDir.Count == 0) return;
-        
+
         logger.Information("Cleaning up temporary directories...");
         globals.TempDir.ForEach(d =>
         {
@@ -370,7 +372,7 @@ public sealed class RootCommand(
             {
                 if (!Directory.Exists(d)) return;
                 Directory.Delete(d, true);
-                AnsiConsole.MarkupLine($"Deleted temp dir: [red]{d}[/]");
+                logger.Information("Deleted temp dir: {Directory}", d);
             }
             catch (Exception ex)
             {
@@ -379,25 +381,25 @@ public sealed class RootCommand(
         });
     }
 
-    private static async Task<bool> CheckDependenciesAsync()
+    private async Task<bool> CheckDependenciesAsync()
     {
         var ffmpegPath = await GetCommandPathAsync("ffmpeg");
         if (string.IsNullOrWhiteSpace(ffmpegPath))
         {
-            AnsiConsole.MarkupLine("[red]Error: FFmpeg not found. Please install FFmpeg and ensure it's in your system's PATH.[/]");
+            logger.Error("Error: FFmpeg not found. Please install FFmpeg and ensure it's in your system's PATH");
             return false;
         }
 
         var ytDlpPath = await GetCommandPathAsync("yt-dlp");
         if (!string.IsNullOrWhiteSpace(ytDlpPath)) return true;
-        AnsiConsole.MarkupLine("[red]Error: yt-dlp not found. Please install yt-dlp and ensure it's in your system's PATH.[/]");
+        logger.Error("Error: yt-dlp not found. Please install yt-dlp and ensure it's in your system's PATH.");
         return false;
     }
 
     private static async Task<string> GetCommandPathAsync(string commandName)
     {
         var processCmd = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "where" : "which";
-        
+
         var processInfo = new ProcessStartInfo(processCmd, commandName)
         {
             RedirectStandardOutput = true,

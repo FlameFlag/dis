@@ -1,11 +1,11 @@
 using dis.Features.Download.Models;
-using Spectre.Console;
+using Serilog;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Metadata;
 
 namespace dis.Features.Download;
 
-public class YouTubeDownloader(YoutubeDL youtubeDl, DownloadQuery downloadQuery)
+public class YouTubeDownloader(YoutubeDL youtubeDl, DownloadQuery downloadQuery, ILogger logger)
     : VideoDownloaderBase(youtubeDl, downloadQuery)
 {
     private const string SponsorBlockMessage = "Removing sponsored segments using SponsorBlock";
@@ -13,8 +13,8 @@ public class YouTubeDownloader(YoutubeDL youtubeDl, DownloadQuery downloadQuery)
     protected override Task PreDownload(RunResult<VideoData> fetch)
     {
         var sponsorBlockEmpty = string.IsNullOrEmpty(Query.OptionSet.SponsorblockRemove);
-        if (sponsorBlockEmpty is false)
-            AnsiConsole.MarkupLine($"[bold green]{SponsorBlockMessage}[/]");
+        if (!sponsorBlockEmpty)
+            logger.Information(SponsorBlockMessage);
         return Task.CompletedTask;
     }
 }

@@ -1,12 +1,13 @@
 using dis.Features.Download.Models;
 using dis.Features.Download.Models.Interfaces;
+using Serilog;
 using Spectre.Console;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
 
 namespace dis.Features.Download;
 
-public class VideoDownloaderFactory(YoutubeDL youtubeDl) : IDownloaderFactory
+public class VideoDownloaderFactory(YoutubeDL youtubeDl, ILogger logger) : IDownloaderFactory
 {
     // Constants for URL checking
     private const string YouTubeUrlPart = "youtu";
@@ -16,7 +17,7 @@ public class VideoDownloaderFactory(YoutubeDL youtubeDl) : IDownloaderFactory
     {
         Dictionary<string, Func<DownloadQuery, IVideoDownloader>> customDownloadLogicDic = new()
         {
-            { YouTubeUrlPart, downloadQuery => new YouTubeDownloader(youtubeDl, downloadQuery) },
+            { YouTubeUrlPart, downloadQuery => new YouTubeDownloader(youtubeDl, downloadQuery, logger) }
         };
 
         var optionSet = GenerateOptionSet(o);
@@ -42,13 +43,11 @@ public class VideoDownloaderFactory(YoutubeDL youtubeDl) : IDownloaderFactory
             optionSet.SponsorblockRemove = "all";
 
         if (o.TrimSettings is null) return optionSet;
-        
+
         optionSet.ForceKeyframesAtCuts = true;
         optionSet.DownloadSections = o.TrimSettings.GetDownloadSection();
-            
+
         optionSet.Output = $"%(display_id)s-{o.TrimSettings.GetFilenamePart()}.%(ext)s";
-            
-        AnsiConsole.MarkupLine($"[green]Downloading video section: {o.TrimSettings.GetDownloadSection()}[/]");
 
         return optionSet;
     }

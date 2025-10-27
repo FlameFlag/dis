@@ -73,7 +73,7 @@ public sealed class Converter(
                 return;
             }
 
-            AnsiConsole.MarkupLine($"Converted video saved at: [green]{outP}[/]");
+            logger.Information("Converted video saved at: {Path}", outP);
 
             var (originalSize, compressedSize) = ResultsTable(file, outP);
             if (compressedSize > originalSize)
@@ -150,14 +150,14 @@ public sealed class Converter(
 
     private bool ShouldRetry(Settings s, string outP, IEnumerable<IStream> streams)
     {
-        AnsiConsole.MarkupLine("[yellow]The resulting file is larger than the original.[/]");
+        logger.Warning("The resulting file is larger than the original.");
 
         var deleteAndRetry = AskForRetry();
-        if (deleteAndRetry is false) return false;
+        if (!deleteAndRetry) return false;
         if (File.Exists(outP))
         {
             File.Delete(outP);
-            AnsiConsole.MarkupLine("[green]Deleted the converted video.[/]");
+            logger.Information("Deleted the oversized converted video.");
         }
 
         var resolutionChanged = AskForResolutionChange(streams, s);

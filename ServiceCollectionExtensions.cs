@@ -6,6 +6,7 @@ using dis.Features.Download.Models;
 using dis.Features.Download.Models.Interfaces;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using Serilog.Core;
 
 namespace dis;
@@ -32,7 +33,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDownloaderFactory>(sp =>
         {
             var globals = sp.GetRequiredService<Globals>();
-            return new VideoDownloaderFactory(globals.YoutubeDl);
+            var logger = sp.GetRequiredService<ILogger>();
+            return new VideoDownloaderFactory(globals.YoutubeDl, logger.ForContext<VideoDownloaderFactory>());
         });
     }
 }
