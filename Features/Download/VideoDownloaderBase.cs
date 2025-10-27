@@ -13,39 +13,24 @@ public abstract class VideoDownloaderBase(YoutubeDL youtubeDl, DownloadQuery que
     protected readonly YoutubeDL YoutubeDl = youtubeDl;
     protected readonly DownloadQuery Query = query;
     private readonly ILogger _logger = Log.Logger.ForContext<VideoDownloaderBase>();
-    private TrimSettings? _trimSettings;
 
     private const string LiveStreamError = "Live streams are not supported";
     private const string DownloadError = "Download failed";
     private const string FetchError = "Failed to fetch url";
-    private const string TrimTimeError = "Trim time exceeds video length";
 
     public async Task<DownloadResult> Download(RunResult<VideoData>? fetchResult)
     {
         var fetch = fetchResult ?? await FetchVideoData();
-        if (fetch is null)
+        if (fetch is null || !fetch.Success)
         {
             _logger.Error(FetchError);
             return new DownloadResult(null, fetchResult);
         }
-        if (fetch.Success is false)
-        {
-            _logger.Error(FetchError);
-            return new DownloadResult(null, fetchResult);
-        }
+
         if (fetch.Data.IsLive is true)
         {
             _logger.Error(LiveStreamError);
             return new DownloadResult(null, fetchResult);
-        }
-
-        var hasKeyframes = Query.OptionSet.ForceKeyframesAtCuts;
-        if (hasKeyframes)
-        {
-            var timeSplit = Query.OptionSet.DownloadSections!.Values[0].Split('-');
-            var validTimeRange = ValidTimeRange(timeSplit, fetch.Data.Duration);
-            if (validTimeRange is false)
-                return new DownloadResult(null, fetchResult);
         }
 
         // Pre-download custom logic
@@ -96,11 +81,7 @@ public abstract class VideoDownloaderBase(YoutubeDL youtubeDl, DownloadQuery que
         {
             ctx.Spinner(Spinner.Known.Arrow);
 
-            var outputTemplate = _trimSettings != null
-                ? $"%(display_id)s-{_trimSettings.GetFilenamePart()}.%(ext)s"
-                : "%(display_id)s.%(ext)s";
-
-            Query.OptionSet.Output = Path.Combine(YoutubeDl.OutputFolder, outputTemplate);
+            Query.OptionSet.Output = Path.Combine(YoutubeDl.OutputFolder, Query.OptionSet.Output);
 
             download = await YoutubeDl.RunVideoDownload(Query.Uri.ToString(),
                 overrideOptions: Query.OptionSet,
@@ -113,37 +94,7 @@ public abstract class VideoDownloaderBase(YoutubeDL youtubeDl, DownloadQuery que
                     ctx.Status($"[green]Download Progress: {progress}%[/]");
                     ctx.Refresh();
                 }));
-            return Task.CompletedTask;
         });
         return download;
-    }
-
-    /// <summary>
-    /// Validates if the given time range is valid within the video length.
-    /// </summary>
-    private bool ValidTimeRange(string[] timeSplit, float? fetchDuration)
-    {
-        var start = float.Parse(timeSplit[0].TrimStart('*'));
-        var end = float.Parse(timeSplit[1]);
-
-        /*
-         * Checks if the start time is less than or equal to the end time,
-         * and the end time does not exceed the video's total duration.
-         * Valid time range examples:
-         * start=0, end=10, duration=20;
-         * Invalid time range examples:
-         * start=10, end=5, duration=20; start=0, end=25, duration=20
-         */
-        var validTimeRange = start <= end && end <= (fetchDuration ?? float.MaxValue);
-
-        if (validTimeRange)
-        {
-            _trimSettings = new TrimSettings(start, end - start);
-            Query.OptionSet.Output = $"%(display_id)s-{_trimSettings.GetFilenamePart()}.%(ext)s";
-            return true;
-        }
-
-        _logger.Error(TrimTimeError);
-        return false;
     }
 }

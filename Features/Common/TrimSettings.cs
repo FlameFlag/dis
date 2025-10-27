@@ -23,7 +23,7 @@ public record TrimSettings(double Start, double Duration)
     {
         var timeSpan = TimeSpan.FromSeconds(seconds);
         var wholeSeconds = (int)timeSpan.TotalSeconds;
-        var milliseconds = (int)(timeSpan.TotalMilliseconds % 1000);
-        return $"{wholeSeconds:D2}_{milliseconds:D3}";
+        var centiseconds = (int)(timeSpan.TotalMilliseconds % 1000) / 10;
+        return $"{wholeSeconds:D2}_{centiseconds:D2}";
     }
 }

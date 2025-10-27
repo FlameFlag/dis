@@ -33,6 +33,7 @@ public class VideoDownloaderFactory(YoutubeDL youtubeDl) : IDownloaderFactory
     {
         OptionSet optionSet = new()
         {
+            Output = "%(display_id)s.%(ext)s",
             FormatSort = FormatSort,
             EmbedMetadata = true
         };
@@ -40,12 +41,14 @@ public class VideoDownloaderFactory(YoutubeDL youtubeDl) : IDownloaderFactory
         if (o.Options.SponsorBlock)
             optionSet.SponsorblockRemove = "all";
 
-        if (o.TrimSettings is not null)
-        {
-            optionSet.ForceKeyframesAtCuts = true;
-            optionSet.DownloadSections = o.TrimSettings.GetDownloadSection();
-            AnsiConsole.MarkupLine($"[green]Downloading video section: {o.TrimSettings.GetDownloadSection()}[/]");
-        }
+        if (o.TrimSettings is null) return optionSet;
+        
+        optionSet.ForceKeyframesAtCuts = true;
+        optionSet.DownloadSections = o.TrimSettings.GetDownloadSection();
+            
+        optionSet.Output = $"%(display_id)s-{o.TrimSettings.GetFilenamePart()}.%(ext)s";
+            
+        AnsiConsole.MarkupLine($"[green]Downloading video section: {o.TrimSettings.GetDownloadSection()}[/]");
 
         return optionSet;
     }

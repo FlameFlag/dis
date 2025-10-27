@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using dis.Features.Common;
@@ -29,269 +28,377 @@ public sealed class RootCommand(
 {
     private static readonly string[] VersionArgs = ["-v", "--version"];
 
-    private void ValidateInputs(IEnumerable<string> inputs)
+    private ValidationResult ValidateInputs(IEnumerable<string> inputs)
     {
-        if (VersionArgs.Any(Environment.GetCommandLineArgs().Contains))
-            return;
+        if (IsVersionRequest()) return ValidationResult.Success();
 
         foreach (var input in inputs)
         {
             var isPath = File.Exists(input);
-            var isUrl = Uri.IsWellFormedUriString(input, UriKind.RelativeOrAbsolute);
+            var isUrl = Uri.IsWellFormedUriString(input, UriKind.Absolute);
+
             switch (isPath)
             {
-                case false when isUrl is false:
-                    {
-                        ValidationResult.Error($"Invalid input file or link: {input}");
-                        return;
-                    }
+                case false when !isUrl:
+                    return ValidationResult.Error($"Invalid input file or link: {input}");
                 case true:
+                {
+                    if (!type.TryGetContentType(input, out var contentType))
                     {
-                        if (type.TryGetContentType(input, out var contentType) is false) return;
-                        if (contentType.Contains("video") || contentType.Contains("audio")) return;
-                        break;
+                        logger.Warning("Could not determine content type for file: {Input}", input);
+                        continue;
                     }
+
+                    var isMedia = contentType.Contains("video", StringComparison.OrdinalIgnoreCase) ||
+                                  contentType.Contains("audio", StringComparison.OrdinalIgnoreCase);
+                    if (!isMedia)
+                        return ValidationResult.Error($"Input file is not a recognized video/audio type: {input} (Type: {contentType})");
+
+                    break;
+                }
             }
         }
+        return ValidationResult.Success();
     }
 
-    private static void ValidateOutput(string? output)
+    private static ValidationResult ValidateOutput(string? output)
     {
-        if (string.IsNullOrEmpty(output)) output = Environment.CurrentDirectory;
-        if (Directory.Exists(output) is false)
-            ValidationResult.Error("Output directory does not exist");
+        if (!string.IsNullOrEmpty(output) && !Directory.Exists(output))
+            return ValidationResult.Error($"Output directory does not exist: {output}");
+        
+        return ValidationResult.Success();
     }
 
-    private static void ValidateCrf(int crf)
+    private static ValidationResult ValidateCrf(int crf)
     {
         const int min = 6;
-        const int minRecommended = 22;
         const int max = 63;
+        const int minRecommended = 22;
         const int maxRecommended = 38;
 
-        var settingsType = typeof(Settings);
-        // Use reflection to get the Crf property in the Settings class.
-        var crfProperty = settingsType.GetProperty(nameof(Settings.Crf));
-
-        // Get the DefaultValueAttribute assigned to the Crf property.
-        var defaultValueAttribute = crfProperty?
-            .GetCustomAttributes(typeof(DefaultValueAttribute), false)
-            .FirstOrDefault() as DefaultValueAttribute;
-
-        // Get the value from the DefaultValueAttribute.
-        var defaultValue = (int)defaultValueAttribute?.Value!;
-
-        /*
-         * Use pattern matching with a switch expression to check if the 'crf' value is valid.
-         * If 'crf' is less than 0 or greater than the maximum, it is invalid, so 'validCrf' will be set to false.
-         * If 'crf' is between the minimum and maximum, inclusive, 'crf' is valid, and 'validCrf' will be set to true.
-         */
-        var validCrf = crf switch
+        switch (crf)
         {
-            < 0 => false,
-            >= min and <= max => true,
-            _ => false
-        };
+            case < min or > max:
+                return ValidationResult.Error($"CRF value must be between {min} and {max} (Recommended: {minRecommended}-{maxRecommended})");
+            case < minRecommended:
+                AnsiConsole.MarkupLine($"[yellow]Warning: CRF value {crf} is below the recommended minimum of {minRecommended}. This may result in very large files.[/]");
+                break;
+            case > maxRecommended:
+                AnsiConsole.MarkupLine($"[yellow]Warning: CRF value {crf} is above the recommended maximum of {maxRecommended}. This may result in poor quality.[/]");
+                break;
+        }
 
-        if (validCrf is false)
-            ValidationResult.Error($"CRF value must be between {min} and {max} (Avoid values below {defaultValue})");
-        else switch (crf)
-            {
-                case < minRecommended:
-                    AnsiConsole.MarkupLine($"[yellow]CRF values below {minRecommended} are not recommended[/]");
-                    break;
-                case > maxRecommended:
-                    AnsiConsole.MarkupLine($"[yellow]CRF values above {maxRecommended} are not recommended[/]");
-                    break;
-            }
+        return ValidationResult.Success();
     }
 
-    private static void ValidateAudioBitrate(int? audioBitrate)
+    private static ValidationResult ValidateAudioBitrate(int? audioBitrate)
     {
-        if (audioBitrate is null) return;
-
-        var audioBitrateRange = audioBitrate switch
+        switch (audioBitrate)
         {
-            < 128 => false,
-            > 192 => false,
-            _ => true
-        };
-        if (audioBitrateRange is false)
-            AnsiConsole.MarkupLine("[yellow]Audio bitrate values below 128 or above 192 are not recommended[/]");
-        if (audioBitrate % 2 != 0)
-            ValidationResult.Error("Audio bitrate must be a multiple of 2");
+            case null:
+                return ValidationResult.Success();
+            case < 128 or > 192:
+                AnsiConsole.MarkupLine("[yellow]Warning: Audio bitrate values outside the 128-192 kbps range are not generally recommended.[/]");
+                break;
+        }
+
+        return audioBitrate % 2 != 0
+            ? ValidationResult.Error("Audio bitrate must be a multiple of 2.")
+            : ValidationResult.Success();
     }
 
-    private void ValidateResolution(string? resolution)
+    private ValidationResult ValidateResolution(string? resolution)
     {
-        var hasResolution = resolution is not null;
-        if (hasResolution is false) return;
+        if (string.IsNullOrEmpty(resolution)) return ValidationResult.Success();
+        
+        var validResolutionsText = string.Join(", ", validResolutions.Resolutions.Select(r => $"{r}p"));
+        var isValid = validResolutions.Resolutions
+            .Any(res => res.ToString().Equals(resolution.Replace("p", ""), StringComparison.InvariantCultureIgnoreCase));
 
-        var validResolution = validResolutions.Resolutions
-            .Any(res => res.ToString().Equals($"{resolution}p", StringComparison.InvariantCultureIgnoreCase));
-        if (validResolution is false)
-            ValidationResult.Error("Invalid resolution");
+        return !isValid
+            ? ValidationResult.Error($"Invalid resolution: {resolution}. Valid options are: {validResolutionsText}")
+            : ValidationResult.Success();
     }
-
-    private void ValidateVideoCodec(string? videoCodec)
+    
+    private ValidationResult ValidateVideoCodec(string? videoCodec)
     {
-        var hasVideoCodec = videoCodec is not null;
-        if (!hasVideoCodec) return;
+        if (string.IsNullOrEmpty(videoCodec)) return ValidationResult.Success();
 
-        var validVideoCodec = videoCodecs.Codecs
-            .Any(codec => codec.ToString()
-                .Equals(videoCodec,
-                StringComparison.InvariantCultureIgnoreCase));
-        if (validVideoCodec is false)
-            ValidationResult.Error("Invalid video codec");
+        var validCodecsText = string.Join(", ", videoCodecs.Codecs);
+        var isValid = videoCodecs.Codecs
+            .Any(codec => codec.ToString().Contains(videoCodec, StringComparison.InvariantCultureIgnoreCase));
+
+        return !isValid
+            ? ValidationResult.Error($"Invalid video codec: {videoCodec}. Valid options are: {validCodecsText}")
+            : ValidationResult.Success();
     }
 
     public override ValidationResult Validate(CommandContext context, Settings settings)
     {
-        ValidateInputs(settings.Input);
-        ValidateOutput(settings.Output);
-        ValidateCrf(settings.Crf);
-        ValidateAudioBitrate(settings.AudioBitrate);
-        ValidateResolution(settings.Resolution);
-        ValidateVideoCodec(settings.VideoCodec);
-        ValidationResult.Success();
-        return base.Validate(context, settings);
-    }
+        var validationResults = new[]
+        {
+            ValidateInputs(settings.Input),
+            ValidateOutput(settings.Output),
+            ValidateCrf(settings.Crf),
+            ValidateAudioBitrate(settings.AudioBitrate),
+            ValidateResolution(settings.Resolution),
+            ValidateVideoCodec(settings.VideoCodec)
+        };
 
+        return validationResults.FirstOrDefault(result => !result.Successful) ?? base.Validate(context, settings);
+    }
+    
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        // This is a hacky way to check for the version, but the library doesn't really have a better way. So, we have to do what we have to do.
-        if (VersionArgs.Any(Environment.GetCommandLineArgs().Contains))
+        if (IsVersionRequest())
         {
-            AnsiConsole.MarkupLine(typeof(RootCommand).Assembly.GetName().Version!.ToString(3));
+            PrintVersion();
             return 0;
         }
 
-        // Patch up output directory to current dir if it's empty
-        if (string.IsNullOrEmpty(settings.Output)) settings.Output = Environment.CurrentDirectory;
+        if (!await CheckDependenciesAsync()) return 1;
 
-        var links = settings.Input
-            .Where(video =>
-                Uri.IsWellFormedUriString(video, UriKind.RelativeOrAbsolute) &&
-                File.Exists(video) is false)
-            .Select(video => new Uri(video));
+        settings.Output ??= Environment.CurrentDirectory;
 
-        var files = settings.Input
-            .Where(File.Exists);
+        var (links, localFiles) = CategorizeInputs(settings.Input);
 
-        List<string> paths = [];
-        TrimSettings? downloadTrimSettings = null;
-        TrimSettings? ffmpegTrimSettings = null;
-        Dictionary<Uri, RunResult<VideoData>> runResults = new();
-
-        if (await CheckForFFmpegAndYtDlp() is false)
+        if (links.Count == 0 && localFiles.Count == 0)
+        {
+            logger.Warning("No valid input links or local files were provided.");
             return 1;
-
-        // Get trim settings once if trimming is enabled for URLs
-        var linksList = links.ToList();
-        if (settings.Trim && linksList.Count != 0)
-        {
-            // Pre-fetch metadata for all videos
-            foreach (var link in linksList)
-            {
-                DownloadOptions downloadOptions = new(link, settings, null);
-                var runResult = await downloader.FetchMetadata(downloadOptions);
-                if (runResult != null) runResults[link] = runResult;
-            }
-
-            // Use the first video with valid duration for trim settings
-            foreach (var result in runResults.Values)
-            {
-                var duration = TimeSpan.FromSeconds(result.Data.Duration ?? 0);
-                if (duration <= TimeSpan.Zero) continue;
-                var slider = new TrimmingSlider(duration);
-                var trimResult = slider.ShowSlider();
-                if (string.IsNullOrEmpty(trimResult))  // If canceled, exit immediately
-                    return 0;
-
-                var parts = trimResult.Split('-');
-                if (parts.Length != 2 ||
-                    !double.TryParse(parts[0], out var start) ||
-                    !double.TryParse(parts[1], out var end)) continue;
-                downloadTrimSettings = new TrimSettings(start, end - start);
-                break;
-            }
         }
 
-        await Download(linksList, paths, settings, downloadTrimSettings, runResults);
-
-        // Get trim settings for local files if trimming is enabled
-        var filesList = files.ToList();
-        if (settings.Trim && filesList.Count != 0)
+        var trimSettings = await GetTrimSettingsAsync(settings, links, localFiles, cancellationToken);
+        if (settings.Trim && trimSettings is null)
         {
-            var mediaInfo = await FFmpeg.GetMediaInfo(filesList.First());
+            logger.Information("Trimming was cancelled by the user.");
+            return 0;
+        }
+        
+        var downloadedItems = await DownloadAllAsync(links, settings, trimSettings, cancellationToken);
+        var localItems = localFiles.Select(path => new ConversionItem(path, null)).ToList();
 
-            if (mediaInfo.Streams.FirstOrDefault(s => s is IVideoStream) is IVideoStream videoStream)
-            {
-                var slider = new TrimmingSlider(videoStream.Duration);
-                var trimResult = slider.ShowSlider();
-                if (string.IsNullOrEmpty(trimResult))  // If cancelled, exit immediately
-                    return 0;
+        var itemsProcessed = false;
 
-                var parts = trimResult.Split('-');
-                if (parts.Length == 2 &&
-                    double.TryParse(parts[0], out var start) &&
-                    double.TryParse(parts[1], out var end))
-                {
-                    ffmpegTrimSettings = new TrimSettings(start, end - start);
-                }
-            }
+        // Convert downloaded items, which are already trimmed. Pass null for trimSettings.
+        var conversionItems = downloadedItems.ToList();
+        if (conversionItems.Count != 0)
+        {
+            await ConvertAllAsync(conversionItems, settings, null, cancellationToken);
+            itemsProcessed = true;
         }
 
-        paths.AddRange(filesList);
-
-        // Only convert local files here - downloaded files are already converted with their metadata
-        var localFiles = filesList.Select(p => (p, (RunResult<VideoData>?)null));
-        await Convert(localFiles, settings, ffmpegTrimSettings);
-
-        // Cleanup temp directories after all operations are complete
-        var hasAny = globals.TempDir.Count is not 0;
-        if (hasAny)
+        // Convert local files, which need to be trimmed by FFmpeg. Pass the original trimSettings.
+        if (localItems.Count != 0)
         {
-            globals.TempDir.ForEach(d =>
-            {
-                Directory.Delete(d, true);
-                AnsiConsole.MarkupLine($"Deleted temp dir: [red]{d}[/]");
-            });
+            await ConvertAllAsync(localItems, settings, trimSettings, cancellationToken);
+            itemsProcessed = true;
         }
 
+        if (!itemsProcessed)
+        {
+            logger.Information("No videos were successfully processed for conversion.");
+            return 0;
+        }
+
+        CleanupTempDirectories();
         return 0;
     }
 
-    private static async Task<bool> CheckForFFmpegAndYtDlp()
+    private static bool IsVersionRequest() => VersionArgs.Any(Environment.GetCommandLineArgs().Contains);
+    
+    private static void PrintVersion() => AnsiConsole.MarkupLine(typeof(RootCommand).Assembly.GetName().Version!.ToString(3));
+
+    private (List<Uri> Uris, List<string> FilePaths) CategorizeInputs(IEnumerable<string> inputs)
+    {
+        var uris = new List<Uri>();
+        var filePaths = new List<string>();
+        foreach (var input in inputs)
+        {
+            if (File.Exists(input))
+            {
+                filePaths.Add(input);
+            }
+            else if (Uri.IsWellFormedUriString(input, UriKind.Absolute))
+            {
+                uris.Add(new Uri(input));
+            }
+        }
+        return (uris, filePaths);
+    }
+    
+    private async Task<TrimSettings?> GetTrimSettingsAsync(Settings settings, List<Uri> links, List<string> localFiles, CancellationToken ct)
+    {
+        if (!settings.Trim) return null;
+
+        TimeSpan? duration = null;
+
+        // Prioritize local files for getting duration as it's faster.
+        if (localFiles.Count != 0)
+        {
+            duration = await GetDurationFromFileAsync(localFiles.First(), ct);
+        }
+        // If no local files, try getting duration from the first valid link.
+        else if (links.Count != 0)
+        {
+            duration = await GetDurationFromLinkAsync(links.First(), settings, ct);
+        }
+
+        if (duration is null || duration <= TimeSpan.Zero)
+        {
+            logger.Warning("Could not determine a valid video duration. Skipping trim.");
+            return null;
+        }
+
+        return ShowTrimSlider(duration.Value);
+    }
+    
+    private async Task<TimeSpan?> GetDurationFromFileAsync(string filePath, CancellationToken ct)
     {
         try
         {
-            var cmd = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "where" : "which";
-            var ffmpegPath = await GetCommandPath(cmd, "ffmpeg");
-            var ytDlpPath = await GetCommandPath(cmd, "yt-dlp");
-
-            if (string.IsNullOrWhiteSpace(ffmpegPath))
-            {
-                AnsiConsole.WriteLine("FFmpeg not found in PATH. Please install FFmpeg and add it to PATH.");
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(ytDlpPath)) return true;
-            AnsiConsole.WriteLine("yt-dlp not found in PATH. Please install yt-dlp and add it to PATH.");
-            return false;
-
+            var mediaInfo = await FFmpeg.GetMediaInfo(filePath, ct);
+            return mediaInfo.Duration;
         }
         catch (Exception ex)
         {
-            AnsiConsole.WriteLine($"An error occurred: {ex.Message}");
-            return false;
+            logger.Error(ex, "Failed to get media info for {File}. Unable to determine duration for trimming.", filePath);
+            return null;
         }
     }
 
-    private static async Task<string> GetCommandPath(string cmd, string commandName)
+    private async Task<TimeSpan?> GetDurationFromLinkAsync(Uri link, Settings settings, CancellationToken ct)
     {
-        ProcessStartInfo processInfo = new(cmd, commandName)
+        try
+        {
+            var downloadOptions = new DownloadOptions(link, settings, null);
+            var runResult = await downloader.FetchMetadata(downloadOptions, ct);
+            return runResult?.Data?.Duration is not null 
+                ? TimeSpan.FromSeconds(runResult.Data.Duration.Value) 
+                : null;
+        }
+        catch (Exception ex)
+        {
+            logger.Error(ex, "Failed to fetch metadata for {Link}. Unable to determine duration for trimming.", link);
+            return null;
+        }
+    }
+
+    private TrimSettings? ShowTrimSlider(TimeSpan duration)
+    {
+        var slider = new TrimmingSlider(duration);
+        var trimResult = slider.ShowSlider();
+
+        if (string.IsNullOrEmpty(trimResult)) return null; // User cancelled
+
+        var parts = trimResult.Split('-');
+        if (parts.Length == 2 &&
+            double.TryParse(parts[0], out var start) &&
+            double.TryParse(parts[1], out var end) &&
+            start <= end)
+        {
+            return new TrimSettings(start, end - start);
+        }
+
+        logger.Warning("Invalid trim input '{TrimResult}'. Skipping trim.", trimResult);
+        return null;
+    }
+    
+    private async Task<IEnumerable<ConversionItem>> DownloadAllAsync(IEnumerable<Uri> links, Settings settings, TrimSettings? trimSettings, CancellationToken ct)
+    {
+        var downloadedItems = new List<ConversionItem>();
+        var linkList = links.ToList();
+        
+        if (linkList.Count == 0) return downloadedItems;
+
+        logger.Information("Starting download of {Count} links...", linkList.Count);
+        
+        foreach (var link in linkList)
+        {
+            ct.ThrowIfCancellationRequested();
+            var downloadOptions = new DownloadOptions(link, settings, trimSettings);
+            var metadata = await downloader.FetchMetadata(downloadOptions, ct);
+            var result = await downloader.DownloadTask(downloadOptions, metadata, ct);
+
+            if (result.OutPath is null)
+            {
+                logger.Error("Failed to download video from {Link}", link);
+                continue;
+            }
+
+            AnsiConsole.MarkupLine($"Downloaded video to: [green]{result.OutPath}[/]");
+            downloadedItems.Add(new ConversionItem(result.OutPath, result.fetchResult));
+        }
+
+        return downloadedItems;
+    }
+
+    private async Task ConvertAllAsync(IEnumerable<ConversionItem> items, Settings settings, TrimSettings? trimSettings, CancellationToken ct)
+    {
+        var itemList = items.ToList();
+        if (itemList.Count == 0) return;
+        
+        logger.Information("Starting conversion of {Count} files...", itemList.Count);
+        
+        foreach (var (path, fetchResult) in itemList)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                // Note: The trimSettings here will apply to local files.
+                // For downloaded files, trimming may have already been done by yt-dlp if possible
+                // Applying it again with FFmpeg for local files is the intended logic
+                await converter.ConvertVideo(path, fetchResult, settings, trimSettings);
+                AnsiConsole.MarkupLine($"Converted video: [green]{Path.GetFileName(path)}[/]");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to convert video: {Path}", path);
+                AnsiConsole.MarkupLine($"[red]Failed to convert video: {Path.GetFileName(path)} - {ex.Message}[/]");
+            }
+        }
+    }
+
+    private void CleanupTempDirectories()
+    {
+        if (globals.TempDir.Count == 0) return;
+        
+        logger.Information("Cleaning up temporary directories...");
+        globals.TempDir.ForEach(d =>
+        {
+            try
+            {
+                if (!Directory.Exists(d)) return;
+                Directory.Delete(d, true);
+                AnsiConsole.MarkupLine($"Deleted temp dir: [red]{d}[/]");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to delete temporary directory: {Directory}", d);
+            }
+        });
+    }
+
+    private static async Task<bool> CheckDependenciesAsync()
+    {
+        var ffmpegPath = await GetCommandPathAsync("ffmpeg");
+        if (string.IsNullOrWhiteSpace(ffmpegPath))
+        {
+            AnsiConsole.MarkupLine("[red]Error: FFmpeg not found. Please install FFmpeg and ensure it's in your system's PATH.[/]");
+            return false;
+        }
+
+        var ytDlpPath = await GetCommandPathAsync("yt-dlp");
+        if (!string.IsNullOrWhiteSpace(ytDlpPath)) return true;
+        AnsiConsole.MarkupLine("[red]Error: yt-dlp not found. Please install yt-dlp and ensure it's in your system's PATH.[/]");
+        return false;
+    }
+
+    private static async Task<string> GetCommandPathAsync(string commandName)
+    {
+        var processCmd = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "where" : "which";
+        
+        var processInfo = new ProcessStartInfo(processCmd, commandName)
         {
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -299,72 +406,14 @@ public sealed class RootCommand(
         };
 
         using var process = Process.Start(processInfo);
-        var commandPath = await process?.StandardOutput.ReadToEndAsync()!;
+        if (process is null) return string.Empty;
+
+        var commandPath = await process.StandardOutput.ReadToEndAsync();
         await process.WaitForExitAsync();
 
-        return commandPath;
-    }
-
-    private async Task Download(
-        IEnumerable<Uri> links,
-        List<string> videos,
-        Settings settings,
-        TrimSettings? trimSettings,
-        Dictionary<Uri, RunResult<VideoData>> videoMetadata)
-    {
-        var list = links.ToList();
-        if (list.Count is 0)
-            return;
-
-        // Track downloaded video paths and their metadata
-        var pathToMetadata = new Dictionary<string, RunResult<VideoData>>();
-
-        foreach (var link in list)
-        {
-            var downloadOptions = new DownloadOptions(link, settings, trimSettings);
-
-            if (!videoMetadata.ContainsKey(link))
-            {
-                var metadata = await downloader.FetchMetadata(downloadOptions);
-                if (metadata != null)
-                {
-                    videoMetadata[link] = metadata;
-                }
-            }
-
-            var result = await downloader.DownloadTask(downloadOptions, videoMetadata.GetValueOrDefault(link));
-
-            if (result.OutPath is null)
-                logger.Error("There was an error downloading the video");
-            else
-            {
-                videos.Add(result.OutPath);
-                if (result.fetchResult != null)
-                {
-                    pathToMetadata[result.OutPath] = result.fetchResult;
-                }
-            }
-        }
-
-        foreach (var path in videos)
-            AnsiConsole.MarkupLine($"Downloaded video to: [green]{path}[/]");
-
-        // Convert videos with their metadata
-        await Convert(videos.Select(path => (path, pathToMetadata.GetValueOrDefault(path))), settings, null);
-    }
-
-    private async Task Convert(IEnumerable<(string path, RunResult<VideoData>?)> videos, Settings settings, TrimSettings? trimSettings)
-    {
-        foreach (var (path, fetchResult) in videos)
-        {
-            try
-            {
-                await converter.ConvertVideo(path, fetchResult ?? null, settings, trimSettings);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Failed to convert video: {Path}", path);
-            }
-        }
+        // 'where' can return multiple paths on newlines, we just need the first one.
+        return commandPath.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? string.Empty;
     }
 }
+
+internal record ConversionItem(string Path, RunResult<VideoData>? Metadata);
