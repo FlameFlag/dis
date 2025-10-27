@@ -158,7 +158,7 @@ public sealed class RootCommand(
         return base.Validate(context, settings);
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         // This is a hacky way to check for the version, but the library doesn't really have a better way. So, we have to do what we have to do.
         if (VersionArgs.Any(Environment.GetCommandLineArgs().Contains))
