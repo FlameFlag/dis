@@ -1,49 +1,23 @@
-**/bin/
-**/obj/
-*.user
-*.userosscache
-*.suo
-*.lock.json
-!deps.json
-*.nupkg
-*.log
-*.bak
-.DS_Store
-*.swp
-**/.idea/
+# Go binary
+/dis
+
+# IDE
 **/.vs/
 **/.vscode/
-**/packages/
 
-# auto generated files
-*.dll
-*.exe
-*.pdb
-*.rsp
-*.cache
-*.csproj.user
-
-.history/
-*.vsix
-
-# Test Results and Logs from build processes
-**/TestResults/
-**/[Bb]in/
-**/[Oo]bj/
-**/[Ll]og/
-**/[Ll]ogs/
-**/[Tt]emp/
-**/[Tt]mp/
-
-# User-Specific files and other generated files
-*.userprefs
-*.sln.docstates
-
-# Package Files #
-*.snk
+# OS
+.DS_Store
+*.swp
 
 # Nix
 .direnv/
 .devenv/
 result
 out/
+
+# GoReleaser
+dist/
+
+# Misc
+*.log
+*.bak

@@ -1,37 +1,42 @@
-{ pkgs, lib, ... }:
 {
-  default = pkgs.buildDotnetModule {
+  buildGoModule,
+  makeWrapper,
+  yt-dlp,
+  ffmpeg-full,
+  lib,
+  ...
+}:
+{
+  default = buildGoModule (finalAttrs: {
     pname = "dis";
-    version = "10.0.0";
+    version = "11.0.0";
 
     src = ./.;
 
-    projectFile = "./dis.csproj";
-    nugetDeps = ./deps.json;
+    vendorHash = "sha256-BfJN+0GySOBkf9oEmu9wzWLKQInNfSMdVyfMyCh1QeQ=";
 
-    dotnet-sdk = pkgs.dotnetCorePackages.sdk_10_0;
-    selfContainedBuild = true;
+    ldflags = [
+      "-s"
+      "-w"
+    ];
 
-    executables = [ "dis" ];
+    nativeBuildInputs = [ makeWrapper ];
 
-    postFixup = ''
-      makeWrapper ${pkgs.dotnetCorePackages.sdk_10_0}/bin/dotnet \
-        "$out/bin/dis" --add-flags "$out/lib/dis/dis.dll"
+    postInstall = ''
       wrapProgram "$out/bin/dis" \
         --prefix PATH : ${
           lib.makeBinPath [
-            pkgs.ffmpeg-full
-            pkgs.yt-dlp
+            ffmpeg-full
+            yt-dlp
           ]
-        } \
-        --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ pkgs.icu ]}
+        }
     '';
 
     meta = {
       homepage = "https://github.com/FlameFlag/dis";
-      license = lib.licenses.agpl3Plus;
+      license = lib.licenses.mit;
       platforms = lib.platforms.unix;
       maintainers = [ lib.maintainers.FlameFlag ];
     };
-  };
+  });
 }

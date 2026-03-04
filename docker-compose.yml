@@ -1,0 +1,24 @@
+services:
+  test-deb:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM debian:bookworm-slim
+        COPY dist/ /tmp/dist/
+        RUN ARCH=$(dpkg --print-architecture) && \
+            PKG=$(find /tmp/dist -name "*_${ARCH}.deb" | head -1) && \
+            { test -n "${PKG}" || { echo "No .deb found in dist/ for arch ${ARCH}"; exit 1; }; } && \
+            apt-get update && apt-get install -y "${PKG}"
+        RUN dis --version
+
+  test-rpm:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM fedora:latest
+        COPY dist/ /tmp/dist/
+        RUN ARCH=$(uname -m) && \
+            PKG=$(find /tmp/dist -name "*.${ARCH}.rpm" | head -1) && \
+            { test -n "${PKG}" || { echo "No .rpm found in dist/ for arch ${ARCH}"; exit 1; }; } && \
+            dnf install -y "${PKG}"
+        RUN dis --version

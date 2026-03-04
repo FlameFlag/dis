@@ -1,0 +1,48 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X dis/cmd.Version={{ .Version }}
+
+archives:
+  - formats: [binary]
+    format_overrides:
+      - goos: windows
+        formats: [binary]
+
+nfpms:
+  - vendor: dis
+    homepage: https://github.com/flameflag/dis
+    maintainer: flame
+    description: A small and simple CLI and TUI tool designed to download, trim and compress videos for any website
+    license: MIT
+    section: video
+    formats:
+      - deb
+      - rpm
+    recommends:
+      - ffmpeg
+      - yt-dlp
+    file_name_template: "{{ .ConventionalFileName }}"
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+    rpm:
+      group: Unspecified
+
+changelog:
+  filters:
+    include:
+      - "^feat"
+      - "^fix"
+      - "^refactor"
+      - "^perf"

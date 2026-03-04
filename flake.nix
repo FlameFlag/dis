@@ -1,36 +1,22 @@
 {
-  inputs = {
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    devenv.url = "github:cachix/devenv";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
   outputs =
     inputs:
-    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ inputs.devenv.flakeModule ];
-      systems = [
-        "aarch64-linux"
-        "aarch64-darwin"
-        "x86_64-linux"
-        "x86_64-darwin"
-      ];
-      perSystem =
-        {
-          pkgs,
-          lib,
-          self',
-          config,
-          ...
-        }:
-        {
-          packages.dis = self'.packages.default;
-          packages.default = (pkgs.callPackage ./package.nix { }).default;
-          devenv.shells.default = {
-            packages = builtins.attrValues { inherit (pkgs) yt-dlp ffmpeg-full; };
-            languages.dotnet.enable = true;
-            languages.dotnet.package = pkgs.dotnetCorePackages.sdk_10_0;
-          };
-        };
+    let
+      forAllSystems =
+        f:
+        inputs.nixpkgs.lib.genAttrs [
+          "aarch64-linux"
+          "aarch64-darwin"
+          "x86_64-linux"
+          "x86_64-darwin"
+        ] (system: f inputs.nixpkgs.legacyPackages.${system});
+    in
+    {
+      packages = forAllSystems (pkgs: {
+        dis = (pkgs.callPackage ./package.nix { }).default;
+        default = (pkgs.callPackage ./package.nix { }).default;
+      });
     };
 }
