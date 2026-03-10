@@ -28,6 +28,17 @@ jobs:
         with:
           args: release --snapshot --clean
 
+      - name: Rename binaries with platform suffix
+        run: |
+          for f in dist/dis_linux_*/dis dist/dis_darwin_*/dis; do
+            name=$(basename "$(dirname "$f")" | sed 's/_v[0-9].*//')
+            cp "$f" "dist/${name}"
+          done
+          for f in dist/dis_windows_*/*.exe; do
+            name=$(basename "$(dirname "$f")" | sed 's/_v[0-9].*//')
+            cp "$f" "dist/${name}.exe"
+          done
+
       - name: Delete existing rolling release
         run: gh release delete rolling --yes --cleanup-tag || true
         env:
@@ -41,6 +52,10 @@ jobs:
           files: |
             dist/*.deb
             dist/*.rpm
-            dist/*.tar.gz
-            dist/*.zip
-            dist/checksums.txt
+            dist/dis_linux_amd64
+            dist/dis_linux_arm64
+            dist/dis_darwin_amd64
+            dist/dis_darwin_arm64
+            dist/dis_windows_amd64.exe
+            dist/dis_windows_arm64.exe
+            dist/*_checksums.txt
