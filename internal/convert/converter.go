@@ -4,6 +4,7 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
+	"dis/internal/util"
 	"errors"
 	"fmt"
 	"io"
@@ -76,6 +77,7 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 		compressedSize := fileSize(outputPath)
 		tui.PrintResultsTable(originalSize, compressedSize)
 
+
 		// Warn if target size is set and output exceeds target
 		if s.TargetSize != "" {
 			targetBytes, _ := config.ParseSize(s.TargetSize)
@@ -83,6 +85,15 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 				log.Warn("Output file exceeds target size",
 					"target", s.TargetSize,
 					"actual", humanize.Bytes(uint64(compressedSize)))
+			}
+		}
+
+		// Copy to clipboard if enabled
+		if s.Copy {
+			if err := util.CopyToClipboard(outputPath); err != nil {
+				log.Warn("Could not copy to clipboard", "err", err)
+			} else {
+				log.Info("Copied to clipboard", "path", outputPath)
 			}
 		}
 
@@ -280,5 +291,14 @@ func copyWithoutConversion(inputPath string, s *config.Settings, uploadDate stri
 	}
 
 	log.Info("Copied without conversion", "path", outputPath)
+
+	if s.Copy {
+		if err := util.CopyToClipboard(outputPath); err != nil {
+			log.Warn("Could not copy to clipboard", "err", err)
+		} else {
+			log.Info("Copied to clipboard", "path", outputPath)
+		}
+	}
+
 	return nil
 }

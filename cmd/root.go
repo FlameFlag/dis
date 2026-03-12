@@ -73,8 +73,10 @@ func init() {
 	f.BoolVar(&settings.Sponsor, "sponsor", false, "Remove SponsorBlock segments (YouTube)")
 	f.BoolVar(&settings.Chapter, "chapter", false, "Select chapters to download")
 	f.BoolVar(&settings.NoConvert, "no-convert", false, "Skip conversion and copy the file as-is")
+
 	f.StringVar(&settings.Preset, "preset", "", "Platform preset (discord, discord-nitro, twitter, telegram)")
 	f.StringVar(&settings.TargetSize, "target-size", "", "Target file size (e.g. 10MB, 2GB)")
+	f.BoolVar(&settings.Copy, "copy", false, "Copy output file path to clipboard after conversion")
 	rootCmd.MarkFlagsMutuallyExclusive("chapter", "trim")
 	rootCmd.MarkFlagsMutuallyExclusive("crf", "target-size")
 	_ = rootCmd.RegisterFlagCompletionFunc("video-codec", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

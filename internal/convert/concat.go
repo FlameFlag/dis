@@ -4,6 +4,7 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
+	"dis/internal/util"
 	"fmt"
 	"strings"
 
@@ -51,6 +52,14 @@ func ConcatSegments(ctx context.Context, inputPath string, s *config.Settings, s
 	originalSize := fileSize(inputPath)
 	compressedSize := fileSize(outputPath)
 	tui.PrintResultsTable(originalSize, compressedSize)
+
+	if s.Copy {
+		if err := util.CopyToClipboard(outputPath); err != nil {
+			log.Warn("Could not copy to clipboard", "err", err)
+		} else {
+			log.Info("Copied to clipboard", "path", outputPath)
+		}
+	}
 
 	return nil
 }
