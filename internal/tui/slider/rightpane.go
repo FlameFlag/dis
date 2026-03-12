@@ -34,14 +34,8 @@ func (m Model) renderTranscriptPanel(width int) string {
 
 	var startCue int
 	if m.viewportLocked {
-		startCue = activeCue - TranscriptPinOffset
-		if startCue < 0 {
-			startCue = 0
-		}
-		maxOffset := len(m.transcript) - TranscriptVisibleCues
-		if maxOffset < 0 {
-			maxOffset = 0
-		}
+		startCue = max(activeCue-TranscriptPinOffset, 0)
+		maxOffset := max(len(m.transcript)-TranscriptVisibleCues, 0)
 		if startCue > maxOffset {
 			startCue = maxOffset
 		}
@@ -49,10 +43,7 @@ func (m Model) renderTranscriptPanel(width int) string {
 		startCue = m.transcriptOffset
 	}
 
-	endCue := startCue + TranscriptVisibleCues
-	if endCue > len(m.transcript) {
-		endCue = len(m.transcript)
-	}
+	endCue := min(startCue+TranscriptVisibleCues, len(m.transcript))
 
 	searchSet := make(map[int]bool, len(m.searchResults))
 	for _, idx := range m.searchResults {
@@ -65,10 +56,7 @@ func (m Model) renderTranscriptPanel(width int) string {
 	}
 
 	activeBg := lipgloss.NewStyle().Background(tui.ColorSurface1)
-	textWidth := width - 10 // timestamp + padding
-	if textWidth < 10 {
-		textWidth = 10
-	}
+	textWidth := max(width-10, 10) // timestamp + padding
 
 	for i := startCue; i < endCue; i++ {
 		cue := m.transcript[i]
@@ -120,10 +108,7 @@ func (m Model) renderWordSelectPanel(width int) string {
 
 	markerCol := 3
 	timestampCol := 6
-	textWidth := width - markerCol - timestampCol
-	if textWidth < 20 {
-		textWidth = 20
-	}
+	textWidth := max(width-markerCol-timestampCol, 20)
 
 	type cueGroup struct {
 		cueIndex int
@@ -152,17 +137,11 @@ func (m Model) renderWordSelectPanel(width int) string {
 		}
 	}
 
-	startGroup := cursorGroup - WordSelectPinOffset
-	if startGroup < 0 {
-		startGroup = 0
-	}
+	startGroup := max(cursorGroup-WordSelectPinOffset, 0)
 	endGroup := startGroup + WordSelectVisibleCues
 	if endGroup > len(groups) {
 		endGroup = len(groups)
-		startGroup = endGroup - WordSelectVisibleCues
-		if startGroup < 0 {
-			startGroup = 0
-		}
+		startGroup = max(endGroup-WordSelectVisibleCues, 0)
 	}
 
 	selectedStyle := lipgloss.NewStyle().Foreground(tui.ColorPeach)
@@ -275,16 +254,10 @@ func (m Model) renderVerticalWaveform(width int) string {
 	}
 
 	barChars := []string{"▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"}
-	maxBarWidth := width - 8 // leave space for position indicator
-	if maxBarWidth < 4 {
-		maxBarWidth = 4
-	}
+	maxBarWidth := max(width-8, 4) // leave space for position indicator
 
 	// Determine visible height (we'll use the available space)
-	visibleRows := 16
-	if visibleRows > len(m.waveform) {
-		visibleRows = len(m.waveform)
-	}
+	visibleRows := min(16, len(m.waveform))
 
 	// Find which row the active handle corresponds to
 	activePos := m.activePos()
@@ -295,7 +268,7 @@ func (m Model) renderVerticalWaveform(width int) string {
 
 	var lines []string
 
-	for row := 0; row < visibleRows; row++ {
+	for row := range visibleRows {
 		// Map row to waveform sample
 		sampleIdx := row * len(m.waveform) / visibleRows
 		if sampleIdx >= len(m.waveform) {

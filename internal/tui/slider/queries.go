@@ -17,10 +17,7 @@ func (m Model) isSearchMode() bool {
 }
 
 func (m Model) sliderWidth() int {
-	w := m.leftPaneWidth() - 2 // 2 for inner padding
-	if w < MinSliderWidth {
-		w = MinSliderWidth
-	}
+	w := max(m.leftPaneWidth()-2, MinSliderWidth) // 2 for inner padding
 	return w
 }
 

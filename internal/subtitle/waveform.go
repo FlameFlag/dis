@@ -87,19 +87,13 @@ func extractPCM(ctx context.Context, audioPath string, numSamples int) ([]Wavefo
 		return nil, fmt.Errorf("no audio samples extracted")
 	}
 
-	bucketSize := len(rawSamples) / numSamples
-	if bucketSize < 1 {
-		bucketSize = 1
-	}
+	bucketSize := max(len(rawSamples)/numSamples, 1)
 
 	samples := make([]WaveformSample, 0, numSamples)
 	maxAmplitude := float64(0)
 
 	for i := 0; i < len(rawSamples) && len(samples) < numSamples; i += bucketSize {
-		end := i + bucketSize
-		if end > len(rawSamples) {
-			end = len(rawSamples)
-		}
+		end := min(i+bucketSize, len(rawSamples))
 		peak := float64(0)
 		for j := i; j < end; j++ {
 			abs := math.Abs(float64(rawSamples[j]))

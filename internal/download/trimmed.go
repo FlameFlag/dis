@@ -80,14 +80,12 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 	}
 
 	// Drain stdout (yt-dlp prints [download], [info] etc. here — not much useful progress)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			// Just drain; no useful incremental progress on stdout
 		}
-	}()
+	})
 
 	// Parse stderr for ffmpeg's time= progress
 	wg.Go(func() {

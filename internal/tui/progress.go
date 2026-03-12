@@ -176,14 +176,8 @@ func (m progressModel) viewSparkline(termW int) string {
 	} else {
 		bytesStr = "…"
 	}
-	statsWidth := lipgloss.Width(bytesStr) + 2 // gap
-	sparkW := termW - 1 - statsWidth           // 1 for left pad
-	if sparkW < 10 {
-		sparkW = 10
-	}
-	if sparkW > maxSparklineWidth {
-		sparkW = maxSparklineWidth
-	}
+	statsWidth := lipgloss.Width(bytesStr) + 2                    // gap
+	sparkW := min(max(termW-1-statsWidth, 10), maxSparklineWidth) // 1 for left pad
 	spark := m.renderSparkline(sparkW)
 	line2 := " " + spark + "  " + progressTealStyle.Render(bytesStr)
 
@@ -202,10 +196,7 @@ func (m progressModel) viewSparkline(termW int) string {
 	line3Left := " " + progressSpeedStyle.Render(speedStr)
 	line3Right := progressETAStyle.Render(etaStr)
 
-	gap := termW - lipgloss.Width(line3Left) - lipgloss.Width(line3Right)
-	if gap < 1 {
-		gap = 1
-	}
+	gap := max(termW-lipgloss.Width(line3Left)-lipgloss.Width(line3Right), 1)
 	line3 := line3Left + strings.Repeat(" ", gap) + line3Right
 
 	return line1 + "\n" + line2 + "\n" + line3 + "\n"

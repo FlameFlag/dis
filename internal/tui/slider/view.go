@@ -60,7 +60,7 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	b.WriteString(borderStyle.Render("╭") + borderStyle.Render(topLeft) + divColor.Render("┬") + divColor.Render(topRight) + divColor.Render("╮") + "\n")
 
 	// Body rows
-	for i := 0; i < maxH; i++ {
+	for i := range maxH {
 		ll := padRight(leftLines[i], leftW)
 		rl := padRight(rightLines[i], rightW)
 		b.WriteString(borderStyle.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
@@ -70,10 +70,7 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	// Search input sits above the bottom border if active
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
-		searchPad := m.width - 2 - lipgloss.Width(searchLine)
-		if searchPad < 0 {
-			searchPad = 0
-		}
+		searchPad := max(m.width-2-lipgloss.Width(searchLine), 0)
 		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
 	}
 
@@ -97,10 +94,7 @@ func (m Model) renderSingleColumnLayout(content string, innerW int) string {
 	// Search input
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
-		searchPad := innerW - lipgloss.Width(searchLine)
-		if searchPad < 0 {
-			searchPad = 0
-		}
+		searchPad := max(innerW-lipgloss.Width(searchLine), 0)
 		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
 	}
 

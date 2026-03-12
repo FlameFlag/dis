@@ -87,10 +87,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.transcript != nil {
 			m.viewportLocked = false
 			m.transcriptOffset += TranscriptVisibleCues
-			maxOffset := len(m.transcript) - TranscriptVisibleCues
-			if maxOffset < 0 {
-				maxOffset = 0
-			}
+			maxOffset := max(len(m.transcript)-TranscriptVisibleCues, 0)
 			if m.transcriptOffset > maxOffset {
 				m.transcriptOffset = maxOffset
 			}

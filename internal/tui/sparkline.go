@@ -33,14 +33,11 @@ func (m progressModel) renderSparkline(w int) string {
 	}
 
 	// Collect last w samples from ring buffer
-	n := w
-	if n > m.ringLen {
-		n = m.ringLen
-	}
+	n := min(w, m.ringLen)
 
 	samples := make([]float64, n)
 	start := (m.ringHead - n + len(m.speedRing)) % len(m.speedRing)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		samples[i] = m.speedRing[(start+i)%len(m.speedRing)]
 	}
 
@@ -60,13 +57,7 @@ func (m progressModel) renderSparkline(w int) string {
 }
 
 func (m progressModel) renderBrailleWave(barW int) string {
-	filled := int(m.displayPct / 100.0 * float64(barW))
-	if filled > barW {
-		filled = barW
-	}
-	if filled < 0 {
-		filled = 0
-	}
+	filled := max(min(int(m.displayPct/100.0*float64(barW)), barW), 0)
 
 	var b strings.Builder
 	for i := 0; i < filled; i++ {
@@ -122,10 +113,7 @@ func formatSpeed(bps float64) string {
 
 // formatETAShort returns a short ETA string like "4s" or "1m12s".
 func formatETAShort(d time.Duration) string {
-	d = d.Round(time.Second)
-	if d < 0 {
-		d = 0
-	}
+	d = max(d.Round(time.Second), 0)
 	s := int(math.Round(d.Seconds()))
 	if s < 60 {
 		return fmt.Sprintf("%ds", s)

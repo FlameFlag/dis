@@ -122,10 +122,7 @@ func writeNushellFlag(w io.Writer, f *pflag.Flag, cmdName string) {
 	// Pad and add usage as comment.
 	line := sb.String()
 	if f.Usage != "" {
-		pad := 30 - len(line)
-		if pad < 1 {
-			pad = 1
-		}
+		pad := max(30-len(line), 1)
 		line += strings.Repeat(" ", pad) + "# " + f.Usage
 	}
 

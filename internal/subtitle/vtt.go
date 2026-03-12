@@ -242,7 +242,7 @@ func deduplicateVTTCues(cues Transcript) Transcript {
 	}
 
 	var result Transcript
-	for i := 0; i < len(cues); i++ {
+	for i := range cues {
 		// If the next cue starts at the same time or overlaps significantly
 		// and contains this cue's text, skip this cue
 		if i+1 < len(cues) {

@@ -39,10 +39,7 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 		line := scanner.Text()
 		if totalDuration > 0 && onProgress != nil {
 			if t := parseTimeProgress(line); t > 0 {
-				pct := int(t / totalDuration * 100)
-				if pct > 100 {
-					pct = 100
-				}
+				pct := min(int(t/totalDuration*100), 100)
 				if pct > 0 {
 					onProgress(pct)
 				}

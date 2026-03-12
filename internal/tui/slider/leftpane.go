@@ -26,18 +26,12 @@ func bufPlace(buf []byte, start int, s string) {
 
 func (m Model) renderLeftPane(width int) string {
 	var lines []string
-	w := width - 2 // inner padding
-	if w < MinSliderWidth {
-		w = MinSliderWidth
-	}
+	w := max(width-2, MinSliderWidth) // inner padding
 
 	// Header: "✂ Trim" ... right-aligned M:SS
 	header := boldStyle.Render("✂ Trim")
 	durStr := faintStyle.Render(util.FormatDurationShort(m.duration))
-	pad := width - lipgloss.Width(header) - lipgloss.Width(durStr)
-	if pad < 1 {
-		pad = 1
-	}
+	pad := max(width-lipgloss.Width(header)-lipgloss.Width(durStr), 1)
 	lines = append(lines, " "+header+strings.Repeat(" ", pad)+durStr)
 
 	// Blank line
@@ -116,7 +110,7 @@ func (m Model) renderIntegratedSlider(width int) string {
 
 	hasWaveform := len(m.waveform) > 0
 
-	for i := 0; i < width; i++ {
+	for i := range width {
 		seconds := float64(i) / float64(width) * m.duration
 		silence := m.isSilenceAt(seconds)
 
@@ -147,10 +141,7 @@ func (m Model) renderIntegratedSlider(width int) string {
 				sampleIdx = len(m.waveform) - 1
 			}
 			amp := m.waveform[sampleIdx].Amplitude
-			level := int(amp * float64(len(sparks)-1))
-			if level < 0 {
-				level = 0
-			}
+			level := max(int(amp*float64(len(sparks)-1)), 0)
 			if level >= len(sparks) {
 				level = len(sparks) - 1
 			}
@@ -195,7 +186,7 @@ func (m Model) renderSlider(width int) string {
 		endIdx = width - 1
 	}
 
-	for i := 0; i < width; i++ {
+	for i := range width {
 		seconds := float64(i) / float64(width) * m.duration
 		silence := m.isSilenceAt(seconds)
 		switch {
@@ -264,7 +255,7 @@ func (m Model) renderSliderWithSegments(width int) string {
 	}
 
 	var b strings.Builder
-	for i := 0; i < width; i++ {
+	for i := range width {
 		if i == cursorCol {
 			b.WriteString(handleActiveStyle.Render("┃"))
 			continue
@@ -316,10 +307,7 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 		}
 		lbl := util.FormatDurationShort(t)
 		lblLen := len(lbl)
-		start := pos - lblLen/2
-		if start < 0 {
-			start = 0
-		}
+		start := max(pos-lblLen/2, 0)
 		if start+lblLen > width {
 			start = width - lblLen
 		}
@@ -419,10 +407,7 @@ func (m Model) renderSplitsPanelLines(width int) []string {
 		return nil
 	}
 
-	panelWidth := width
-	if panelWidth > 56 {
-		panelWidth = 56
-	}
+	panelWidth := min(width, 56)
 
 	var lines []string
 	var totalDur float64
@@ -431,10 +416,7 @@ func (m Model) renderSplitsPanelLines(width int) []string {
 	}
 
 	headerLabel := fmt.Sprintf("── splits (%d) ", len(m.splits))
-	fillLen := panelWidth - len(headerLabel)
-	if fillLen < 1 {
-		fillLen = 1
-	}
+	fillLen := max(panelWidth-len(headerLabel), 1)
 	lines = append(lines, " "+dimStyle.Render(headerLabel+strings.Repeat("─", fillLen)))
 
 	for i, s := range m.splits {
@@ -448,10 +430,7 @@ func (m Model) renderSplitsPanelLines(width int) []string {
 	}
 
 	footerLabel := fmt.Sprintf("──────── total %s ", util.FormatDurationShort(totalDur))
-	footerFill := panelWidth - len(footerLabel)
-	if footerFill < 1 {
-		footerFill = 1
-	}
+	footerFill := max(panelWidth-len(footerLabel), 1)
 	lines = append(lines, " "+dimStyle.Render(footerLabel+strings.Repeat("─", footerFill)))
 
 	return lines
@@ -497,10 +476,7 @@ func (m Model) renderChapterLabels(width int) string {
 		if len(lbl) > maxLen && maxLen > 3 {
 			lbl = lbl[:maxLen-1] + "…"
 		}
-		start := ch.pos - len(lbl)/2
-		if start < 0 {
-			start = 0
-		}
+		start := max(ch.pos-len(lbl)/2, 0)
 		if start+len(lbl) > width {
 			start = width - len(lbl)
 		}
@@ -580,7 +556,7 @@ func (m Model) renderSponsorSegments(width int) string {
 	}
 
 	var b strings.Builder
-	for i := 0; i < width; i++ {
+	for i := range width {
 		if buf[i] == ' ' {
 			b.WriteByte(' ')
 			continue
