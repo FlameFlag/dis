@@ -132,3 +132,27 @@ func VideoCodec(codec string) error {
 	}
 	return nil
 }
+
+// TargetSize checks whether the target size string is parseable.
+func TargetSize(size string) error {
+	if size == "" {
+		return nil
+	}
+	bytes, err := config.ParseSize(size)
+	if err != nil {
+		return fmt.Errorf("invalid target size: %w", err)
+	}
+	if bytes < 1_000_000 {
+		return fmt.Errorf("target size must be at least 1MB")
+	}
+	return nil
+}
+
+// Preset checks whether the preset name is valid.
+func Preset(name string, userPresets map[string]config.Preset) error {
+	if name == "" {
+		return nil
+	}
+	_, err := config.ResolvePreset(name, userPresets)
+	return err
+}

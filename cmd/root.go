@@ -32,7 +32,24 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		settings.Input = args
-		return validateAll(&settings)
+
+		cfg, err := config.LoadConfig()
+		if err != nil {
+			log.Warn("Failed to load config file", "err", err)
+			cfg = &config.FileConfig{}
+		}
+
+		config.ApplyDefaults(&settings, cfg, cmd)
+
+		if settings.Preset != "" {
+			preset, err := config.ResolvePreset(settings.Preset, cfg.Presets)
+			if err != nil {
+				return err
+			}
+			config.ApplyPreset(&settings, preset, cmd)
+		}
+
+		return validateAll(&settings, cfg)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return run(cmd.Context(), &settings)
@@ -56,12 +73,18 @@ func init() {
 	f.BoolVar(&settings.Sponsor, "sponsor", false, "Remove SponsorBlock segments (YouTube)")
 	f.BoolVar(&settings.Chapter, "chapter", false, "Select chapters to download")
 	f.BoolVar(&settings.NoConvert, "no-convert", false, "Skip conversion and copy the file as-is")
+	f.StringVar(&settings.Preset, "preset", "", "Platform preset (discord, discord-nitro, twitter, telegram)")
+	f.StringVar(&settings.TargetSize, "target-size", "", "Target file size (e.g. 10MB, 2GB)")
 	rootCmd.MarkFlagsMutuallyExclusive("chapter", "trim")
+	rootCmd.MarkFlagsMutuallyExclusive("crf", "target-size")
 	_ = rootCmd.RegisterFlagCompletionFunc("video-codec", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return config.CodecNames(), cobra.ShellCompDirectiveNoFileComp
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc("resolution", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"144p", "240p", "360p", "480p", "720p", "1080p", "1440p", "2160p"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	_ = rootCmd.RegisterFlagCompletionFunc("preset", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return config.PresetNames(nil), cobra.ShellCompDirectiveNoFileComp
 	})
 }
 
@@ -95,7 +118,7 @@ func catppuccinColorScheme(_ lipgloss.LightDarkFunc) fang.ColorScheme {
 	}
 }
 
-func validateAll(s *config.Settings) error {
+func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 	return errors.Join(
 		validate.Inputs(s.Input),
 		validate.Output(s.Output),
@@ -103,6 +126,8 @@ func validateAll(s *config.Settings) error {
 		validate.AudioBitrate(s.AudioBitrate),
 		validate.Resolution(s.Resolution),
 		validate.VideoCodec(s.VideoCodec),
+		validate.TargetSize(s.TargetSize),
+		validate.Preset(s.Preset, cfg.Presets),
 	)
 }
 

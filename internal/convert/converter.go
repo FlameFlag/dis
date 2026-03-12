@@ -14,6 +14,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/dustin/go-humanize"
 )
 
 // ConvertVideo converts a video file with the given settings and optional trim.
@@ -25,6 +26,13 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 
 	if !info.HasVideo && !info.HasAudio {
 		return fmt.Errorf("no video or audio stream found in file")
+	}
+
+	// Warn if duration exceeds max duration from preset
+	if s.MaxDuration > 0 && info.Duration > s.MaxDuration {
+		log.Warn("Video duration exceeds platform limit",
+			"duration", fmt.Sprintf("%.0fs", info.Duration),
+			"max", fmt.Sprintf("%.0fs", s.MaxDuration))
 	}
 
 	if skip := checkSkipConversion(s, trimSettings); skip {
@@ -67,6 +75,16 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 		originalSize := fileSize(inputPath)
 		compressedSize := fileSize(outputPath)
 		tui.PrintResultsTable(originalSize, compressedSize)
+
+		// Warn if target size is set and output exceeds target
+		if s.TargetSize != "" {
+			targetBytes, _ := config.ParseSize(s.TargetSize)
+			if targetBytes > 0 && compressedSize > targetBytes {
+				log.Warn("Output file exceeds target size",
+					"target", s.TargetSize,
+					"actual", humanize.Bytes(uint64(compressedSize)))
+			}
+		}
 
 		// Retry if output is larger
 		if compressedSize > originalSize && info.HasVideo {

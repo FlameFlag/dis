@@ -17,4 +17,7 @@ type Settings struct {
 	Sponsor      bool
 	Chapter      bool
 	NoConvert    bool
+	Preset       string
+	TargetSize   string
+	MaxDuration  float64
 }

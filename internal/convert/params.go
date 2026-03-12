@@ -42,6 +42,25 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	// Codec-specific params
 	args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
 
+	// Target size constraint
+	if s.TargetSize != "" {
+		targetBytes, _ := config.ParseSize(s.TargetSize)
+		if targetBytes > 0 {
+			duration := info.Duration
+			if trimSettings != nil {
+				duration = trimSettings.Duration
+			}
+			audioBitrate := s.AudioBitrate
+			if audioBitrate == 0 {
+				audioBitrate = 128
+			}
+			videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, duration, audioBitrate)
+			if videoBitrateKbps > 0 {
+				args = append(args, targetSizeArgs(videoBitrateKbps)...)
+			}
+		}
+	}
+
 	// Resolution scaling
 	if s.Resolution != "" && info.HasVideo {
 		args = append(args, resolutionArgs(s.Resolution, info.Width, info.Height)...)
@@ -101,6 +120,14 @@ func codecParams(codec config.Codec, multiThread bool, framerate float64) []stri
 
 	default:
 		return nil
+	}
+}
+
+// targetSizeArgs returns FFmpeg arguments to constrain the video bitrate.
+func targetSizeArgs(videoBitrateKbps int) []string {
+	return []string{
+		"-maxrate", fmt.Sprintf("%dk", videoBitrateKbps),
+		"-bufsize", fmt.Sprintf("%dk", videoBitrateKbps*2),
 	}
 }
 

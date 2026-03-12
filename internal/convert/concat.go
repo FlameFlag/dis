@@ -127,6 +127,25 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 		args = append(args, "-c:v", codec.FFmpegCodecName())
 		args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
 
+		// Target size constraint
+		if s.TargetSize != "" {
+			targetBytes, _ := config.ParseSize(s.TargetSize)
+			if targetBytes > 0 {
+				var totalDur float64
+				for _, seg := range segments {
+					totalDur += seg.Duration
+				}
+				audioBitrate := s.AudioBitrate
+				if audioBitrate == 0 {
+					audioBitrate = 128
+				}
+				videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, totalDur, audioBitrate)
+				if videoBitrateKbps > 0 {
+					args = append(args, targetSizeArgs(videoBitrateKbps)...)
+				}
+			}
+		}
+
 		if s.Resolution != "" {
 			args = append(args, resolutionArgs(s.Resolution, info.Width, info.Height)...)
 		}
