@@ -22,4 +22,8 @@ type Settings struct {
 	TargetSize   string
 	MaxDuration  float64
 	Copy         bool
+	GIF          bool
+	GIFFps       int
+	GIFWidth     int
+	GIFQuality   int
 }

@@ -122,6 +122,30 @@ func Resolution(res string) error {
 	return fmt.Errorf("invalid resolution: %s. Valid options are: %s", res, strings.Join(validStrs, ", "))
 }
 
+// GIFFps checks that the GIF frame rate is within valid range.
+func GIFFps(fps int) error {
+	if fps < 1 || fps > 50 {
+		return fmt.Errorf("GIF fps must be between 1 and 50 (got %d)", fps)
+	}
+	return nil
+}
+
+// GIFWidth checks that the GIF width is within valid range.
+func GIFWidth(width int) error {
+	if width < 1 || width > 3840 {
+		return fmt.Errorf("GIF width must be between 1 and 3840 (got %d)", width)
+	}
+	return nil
+}
+
+// GIFQuality checks that the GIF quality is within valid range.
+func GIFQuality(quality int) error {
+	if quality < 1 || quality > 100 {
+		return fmt.Errorf("GIF quality must be between 1 and 100 (got %d)", quality)
+	}
+	return nil
+}
+
 // VideoCodec checks whether the given codec string is known.
 func VideoCodec(codec string) error {
 	if codec == "" {

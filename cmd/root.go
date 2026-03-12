@@ -77,8 +77,14 @@ func init() {
 	f.StringVar(&settings.Preset, "preset", "", "Platform preset (discord, discord-nitro, twitter, telegram)")
 	f.StringVar(&settings.TargetSize, "target-size", "", "Target file size (e.g. 10MB, 2GB)")
 	f.BoolVar(&settings.Copy, "copy", false, "Copy output file path to clipboard after conversion")
+	f.BoolVar(&settings.GIF, "gif", false, "Export as GIF using gifski")
+	f.IntVar(&settings.GIFFps, "gif-fps", 15, "GIF frame rate (1-50)")
+	f.IntVar(&settings.GIFWidth, "gif-width", 480, "GIF max width in pixels")
+	f.IntVar(&settings.GIFQuality, "gif-quality", 90, "GIF quality (1-100)")
 	rootCmd.MarkFlagsMutuallyExclusive("chapter", "trim")
 	rootCmd.MarkFlagsMutuallyExclusive("crf", "target-size")
+	rootCmd.MarkFlagsMutuallyExclusive("gif", "video-codec")
+	rootCmd.MarkFlagsMutuallyExclusive("gif", "target-size")
 	_ = rootCmd.RegisterFlagCompletionFunc("video-codec", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return config.CodecNames(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -121,7 +127,7 @@ func catppuccinColorScheme(_ lipgloss.LightDarkFunc) fang.ColorScheme {
 }
 
 func validateAll(s *config.Settings, cfg *config.FileConfig) error {
-	return errors.Join(
+	errs := errors.Join(
 		validate.Inputs(s.Input),
 		validate.Output(s.Output),
 		validate.Crf(s.Crf),
@@ -131,12 +137,26 @@ func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 		validate.TargetSize(s.TargetSize),
 		validate.Preset(s.Preset, cfg.Presets),
 	)
+	if s.GIF {
+		errs = errors.Join(errs,
+			validate.GIFFps(s.GIFFps),
+			validate.GIFWidth(s.GIFWidth),
+			validate.GIFQuality(s.GIFQuality),
+		)
+	}
+	return errs
 }
 
 func run(ctx context.Context, s *config.Settings) error {
 	for _, dep := range []string{"ffmpeg", "yt-dlp"} {
 		if _, err := exec.LookPath(dep); err != nil {
 			return fmt.Errorf("%s not found, please install it and ensure it is in your PATH", dep)
+		}
+	}
+
+	if s.GIF {
+		if _, err := exec.LookPath("gifski"); err != nil {
+			return fmt.Errorf("gifski not found — install it: brew install gifski (macOS) or cargo install gifski")
 		}
 	}
 
@@ -192,8 +212,14 @@ func run(ctx context.Context, s *config.Settings) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := convert.ConvertVideo(ctx, path, s, trimSettings, ""); err != nil {
-			log.Error("Failed to convert video", "path", path, "err", err)
+		if s.GIF {
+			if err := convert.ExportGIF(ctx, path, s, trimSettings, ""); err != nil {
+				log.Error("Failed to export GIF", "path", path, "err", err)
+			}
+		} else {
+			if err := convert.ConvertVideo(ctx, path, s, trimSettings, ""); err != nil {
+				log.Error("Failed to convert video", "path", path, "err", err)
+			}
 		}
 	}
 

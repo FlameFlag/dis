@@ -37,6 +37,9 @@ func downloadWithProgress(ctx context.Context, msg, link string, s *config.Setti
 
 // convertDownloaded converts a downloaded video with the given settings.
 func convertDownloaded(ctx context.Context, s *config.Settings, result *download.DownloadResult) error {
+	if s.GIF {
+		return convert.ExportGIF(ctx, result.OutputPath, s, nil, result.UploadDate)
+	}
 	return convert.ConvertVideo(ctx, result.OutputPath, s, nil, result.UploadDate)
 }
 
