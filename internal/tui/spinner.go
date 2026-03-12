@@ -43,9 +43,9 @@ func (m spinnerModel) waitDone() tea.Cmd {
 }
 
 func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.(tea.KeyMsg).String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" {
 			m.cancelled = true
 			return m, tea.Quit
 		}
@@ -54,7 +54,7 @@ func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.tick()
 	case spinnerDoneMsg:
 		m.done = true
-		m.err = msg.(spinnerDoneMsg).err
+		m.err = msg.err
 		return m, tea.Quit
 	}
 	return m, nil

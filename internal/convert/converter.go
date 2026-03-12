@@ -85,14 +85,7 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 			}
 		}
 
-		// Copy to clipboard if enabled
-		if s.Copy {
-			if err := util.CopyToClipboard(outputPath); err != nil {
-				log.Warn("Could not copy to clipboard", "err", err)
-			} else {
-				log.Info("Copied to clipboard", "path", outputPath)
-			}
-		}
+		copyAndLog(s, outputPath)
 
 		// Retry if output is larger
 		if compressedSize > originalSize && info.HasVideo {
@@ -153,13 +146,18 @@ func copyWithoutConversion(inputPath string, s *config.Settings, uploadDate stri
 
 	log.Info("Copied without conversion", "path", outputPath)
 
-	if s.Copy {
-		if err := util.CopyToClipboard(outputPath); err != nil {
-			log.Warn("Could not copy to clipboard", "err", err)
-		} else {
-			log.Info("Copied to clipboard", "path", outputPath)
-		}
-	}
+	copyAndLog(s, outputPath)
 
 	return nil
+}
+
+func copyAndLog(s *config.Settings, path string) {
+	if !s.Copy {
+		return
+	}
+	if err := util.CopyToClipboard(path); err != nil {
+		log.Warn("Could not copy to clipboard", "err", err)
+	} else {
+		log.Info("Copied to clipboard", "path", path)
+	}
 }

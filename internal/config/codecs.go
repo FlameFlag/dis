@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 )
@@ -79,33 +80,20 @@ func CodecNames() []string {
 	return names
 }
 
+func (c Codec) cfg() codecConfig {
+	if cfg, ok := codecConfigs[c]; ok {
+		return cfg
+	}
+	return codecConfigs[CodecH264]
+}
+
 // String returns the primary FFmpeg codec name (implements fmt.Stringer).
-func (c Codec) String() string {
-	return c.FFmpegCodecName()
-}
-
-// FFmpegCodecName returns the FFmpeg-compatible codec name.
-func (c Codec) FFmpegCodecName() string {
-	if cfg, ok := codecConfigs[c]; ok {
-		return cfg.FFmpegName
-	}
-	return "libx264"
-}
-
-func (c Codec) IsWebM() bool {
-	if cfg, ok := codecConfigs[c]; ok {
-		return cfg.IsWebM
-	}
-	return false
-}
+func (c Codec) String() string          { return c.FFmpegCodecName() }
+func (c Codec) FFmpegCodecName() string { return c.cfg().FFmpegName }
+func (c Codec) IsWebM() bool            { return c.cfg().IsWebM }
 
 // PixelFormat returns the appropriate pixel format for this codec.
-func (c Codec) PixelFormat() string {
-	if cfg, ok := codecConfigs[c]; ok && cfg.PixelFormat != "" {
-		return cfg.PixelFormat
-	}
-	return defaultPixelFormat
-}
+func (c Codec) PixelFormat() string { return cmp.Or(c.cfg().PixelFormat, defaultPixelFormat) }
 
 var audioCodecNames = map[bool]string{
 	true:  "libopus", // WebM codecs

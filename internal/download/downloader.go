@@ -91,11 +91,19 @@ func baseCommand(s *config.Settings, rawURL string) *ytdlp.Command {
 	return dl
 }
 
+func makeTempDir() (string, error) {
+	dir := filepath.Join(os.TempDir(), util.ShortID())
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	return dir, nil
+}
+
 // DownloadChaptersCombined downloads multiple chapters concatenated into a single file.
 func DownloadChaptersCombined(ctx context.Context, rawURL string, s *config.Settings, chapters []config.Chapter, onProgress func(tui.ProgressInfo)) (*DownloadResult, error) {
-	tempDir := filepath.Join(os.TempDir(), util.ShortID())
-	if err := os.MkdirAll(tempDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	tempDir, err := makeTempDir()
+	if err != nil {
+		return nil, err
 	}
 
 	// Fetch metadata for upload date
@@ -129,14 +137,9 @@ func DownloadChaptersCombined(ctx context.Context, rawURL string, s *config.Sett
 		return nil, err
 	}
 
-	uploadDate := ""
-	if info.UploadDate != nil {
-		uploadDate = *info.UploadDate
-	}
-
 	return &DownloadResult{
 		OutputPath: outPath,
-		UploadDate: uploadDate,
+		UploadDate: derefOr(info.UploadDate, ""),
 		TempDir:    tempDir,
 	}, nil
 }
@@ -152,10 +155,9 @@ func DownloadChapterSeparate(ctx context.Context, rawURL string, s *config.Setti
 
 // DownloadVideo downloads a video from a URL, applies trim if provided.
 func DownloadVideo(ctx context.Context, rawURL string, s *config.Settings, trimSettings *config.TrimSettings, onProgress func(tui.ProgressInfo)) (*DownloadResult, error) {
-	// Create temp directory
-	tempDir := filepath.Join(os.TempDir(), util.ShortID())
-	if err := os.MkdirAll(tempDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	tempDir, err := makeTempDir()
+	if err != nil {
+		return nil, err
 	}
 
 	// Fetch metadata first
@@ -203,16 +205,18 @@ func DownloadVideo(ctx context.Context, rawURL string, s *config.Settings, trimS
 		}
 	}
 
-	uploadDate := ""
-	if info.UploadDate != nil {
-		uploadDate = *info.UploadDate
-	}
-
 	return &DownloadResult{
 		OutputPath: outPath,
-		UploadDate: uploadDate,
+		UploadDate: derefOr(info.UploadDate, ""),
 		TempDir:    tempDir,
 	}, nil
+}
+
+func derefOr[T comparable](p *T, fallback T) T {
+	if p != nil {
+		return *p
+	}
+	return fallback
 }
 
 func isYouTube(rawURL string) bool {

@@ -2,7 +2,8 @@ package config
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -77,19 +78,8 @@ func ApplyPreset(s *Settings, p *Preset, cmd *cobra.Command) {
 
 // PresetNames returns a sorted list of all available preset names (builtin + user).
 func PresetNames(userPresets map[string]Preset) []string {
-	seen := make(map[string]struct{})
-	var names []string
-
-	for name := range BuiltinPresets {
-		names = append(names, name)
-		seen[name] = struct{}{}
-	}
-	for name := range userPresets {
-		if _, ok := seen[name]; !ok {
-			names = append(names, name)
-		}
-	}
-
-	sort.Strings(names)
-	return names
+	combined := make(map[string]Preset, len(BuiltinPresets)+len(userPresets))
+	maps.Copy(combined, BuiltinPresets)
+	maps.Copy(combined, userPresets)
+	return slices.Sorted(maps.Keys(combined))
 }

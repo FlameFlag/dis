@@ -62,31 +62,22 @@ func LoadConfig() (*FileConfig, error) {
 	return &cfg, nil
 }
 
+// applyDefault sets dst from src if src is non-nil and the flag was not explicitly set.
+func applyDefault[T any](dst *T, src *T, cmd *cobra.Command, flag string) {
+	if src != nil && !cmd.Flags().Changed(flag) {
+		*dst = *src
+	}
+}
+
 // ApplyDefaults sets settings fields from the config file, but only for fields
 // not explicitly set via CLI flags.
 func ApplyDefaults(s *Settings, cfg *FileConfig, cmd *cobra.Command) {
-	if cfg.Crf != nil && !cmd.Flags().Changed("crf") {
-		s.Crf = *cfg.Crf
-	}
-	if cfg.Resolution != nil && !cmd.Flags().Changed("resolution") {
-		s.Resolution = *cfg.Resolution
-	}
-	if cfg.VideoCodec != nil && !cmd.Flags().Changed("video-codec") {
-		s.VideoCodec = *cfg.VideoCodec
-	}
-	if cfg.AudioBitrate != nil && !cmd.Flags().Changed("audio-bitrate") {
-		s.AudioBitrate = *cfg.AudioBitrate
-	}
-	if cfg.MultiThread != nil && !cmd.Flags().Changed("multi-thread") {
-		s.MultiThread = *cfg.MultiThread
-	}
-	if cfg.Output != nil && !cmd.Flags().Changed("output") {
-		s.Output = *cfg.Output
-	}
-	if cfg.Preset != nil && !cmd.Flags().Changed("preset") {
-		s.Preset = *cfg.Preset
-	}
-	if cfg.TargetSize != nil && !cmd.Flags().Changed("target-size") {
-		s.TargetSize = *cfg.TargetSize
-	}
+	applyDefault(&s.Crf, cfg.Crf, cmd, "crf")
+	applyDefault(&s.Resolution, cfg.Resolution, cmd, "resolution")
+	applyDefault(&s.VideoCodec, cfg.VideoCodec, cmd, "video-codec")
+	applyDefault(&s.AudioBitrate, cfg.AudioBitrate, cmd, "audio-bitrate")
+	applyDefault(&s.MultiThread, cfg.MultiThread, cmd, "multi-thread")
+	applyDefault(&s.Output, cfg.Output, cmd, "output")
+	applyDefault(&s.Preset, cfg.Preset, cmd, "preset")
+	applyDefault(&s.TargetSize, cfg.TargetSize, cmd, "target-size")
 }
