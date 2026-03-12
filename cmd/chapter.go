@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/log"
+	ytdlp "github.com/lrstanley/go-ytdlp"
 )
 
 func runChapterMode(ctx context.Context, s *config.Settings, links []string) error {
@@ -20,8 +21,9 @@ func runChapterMode(ctx context.Context, s *config.Settings, links []string) err
 			return err
 		}
 
-		log.Info("Fetching metadata...", "url", link)
-		info, err := download.FetchMetadata(ctx, link)
+		info, err := tui.RunWithSpinnerResult(ctx, "Fetching metadata...", func() (*ytdlp.ExtractedInfo, error) {
+			return download.FetchMetadata(ctx, link)
+		})
 		if err != nil {
 			log.Error("Failed to fetch metadata", "url", link, "err", err)
 			continue

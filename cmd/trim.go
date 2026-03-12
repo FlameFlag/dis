@@ -91,7 +91,9 @@ func probeDuration(ctx context.Context, links, localFiles []string) (float64, *y
 	}
 
 	if len(links) > 0 {
-		info, err := download.FetchMetadata(ctx, links[0])
+		info, err := tui.RunWithSpinnerResult(ctx, "Fetching metadata...", func() (*ytdlp.ExtractedInfo, error) {
+			return download.FetchMetadata(ctx, links[0])
+		})
 		if err != nil {
 			log.Error("Failed to fetch metadata from URL", "url", links[0], "err", err)
 			return 0, nil
