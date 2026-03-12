@@ -18,12 +18,12 @@ type Settings struct {
 	Chapter      bool
 	NoConvert    bool
 
-	Preset       string
-	TargetSize   string
-	MaxDuration  float64
-	Copy         bool
-	GIF          bool
-	GIFFps       int
-	GIFWidth     int
-	GIFQuality   int
+	Preset      string
+	TargetSize  string
+	MaxDuration float64
+	Copy        bool
+	GIF         bool
+	GIFFps      int
+	GIFWidth    int
+	GIFQuality  int
 }

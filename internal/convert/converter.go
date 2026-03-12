@@ -77,7 +77,6 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 		compressedSize := fileSize(outputPath)
 		tui.PrintResultsTable(originalSize, compressedSize)
 
-
 		// Warn if target size is set and output exceeds target
 		if s.TargetSize != "" {
 			targetBytes, _ := config.ParseSize(s.TargetSize)

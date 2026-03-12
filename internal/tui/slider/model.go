@@ -7,6 +7,7 @@ import (
 	"dis/internal/util"
 	"fmt"
 	"math"
+	"os/exec"
 	"slices"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ type ChapterMarker struct {
 // TrimResult holds one or more trim segments from the slider.
 type TrimResult struct {
 	Segments []config.TrimSettings
+	GIF      bool
 }
 
 // Model is the BubbleTea model for the trim slider.
@@ -93,6 +95,12 @@ type Model struct {
 	// Saved splits
 	splits []trimRange
 
+	// GIF export
+	gifMode       bool
+	gifAvailable  bool
+	warning       string
+	warningExpiry time.Time
+
 	// Animation
 	animSpring   harmonica.Spring
 	animStartPos float64
@@ -135,7 +143,8 @@ func (m *Model) triggerAnim() tea.Cmd {
 }
 
 // New creates a new trim slider model.
-func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) Model {
+func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
+	_, gifErr := exec.LookPath("gifski")
 	m := Model{
 		duration:        duration,
 		startPos:        0,
@@ -148,6 +157,8 @@ func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []su
 		sponsorSegments: sponsorSegs,
 		viewportLocked:  true,
 		selectAnchor:    -1,
+		gifMode:         gifEnabled,
+		gifAvailable:    gifErr == nil,
 		animSpring:      harmonica.NewSpring(harmonica.FPS(AnimFPS), SpringFreq, SpringDamping),
 		animStartPos:    0,
 		animEndPos:      duration,
@@ -199,6 +210,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.waveform = msg.Samples
 		return m, nil
 	case animTickMsg:
+		if m.warning != "" && time.Now().After(m.warningExpiry) {
+			m.warning = ""
+		}
 		if !m.animating {
 			return m, nil
 		}
@@ -233,12 +247,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) sliderWidth() int {
-	// Leave padding for margins (2 on each side)
-	w := m.width - 4
+	w := m.leftPaneWidth() - 2 // 2 for inner padding
 	if w < MinSliderWidth {
 		w = MinSliderWidth
 	}
 	return w
+}
+
+func (m Model) isTwoPane() bool {
+	return m.width >= MinTwoPaneWidth && (m.transcript != nil || len(m.waveform) > 0)
+}
+
+func (m Model) leftPaneWidth() int {
+	if m.isTwoPane() {
+		return m.width * LeftPaneRatio / 100
+	}
+	return m.width - 2 // single column: 1 border each side
+}
+
+func (m Model) rightPaneWidth() int {
+	if !m.isTwoPane() {
+		return 0
+	}
+	return m.width - m.leftPaneWidth() - 3 // 3 for border chars (│ left border + │ divider + │ right border)
 }
 
 func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -388,6 +419,15 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Pop last saved split
 		if len(m.splits) > 0 {
 			m.splits = m.splits[:len(m.splits)-1]
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.GIFToggle):
+		if !m.gifAvailable {
+			m.warning = "gifski not found — install: brew install gifski"
+			m.warningExpiry = time.Now().Add(2 * time.Second)
+		} else {
+			m.gifMode = !m.gifMode
 		}
 		return m, nil
 
@@ -827,35 +867,36 @@ func (m Model) Result() *TrimResult {
 		return nil
 	}
 
+	result := &TrimResult{GIF: m.gifMode}
+
 	// Saved splits take priority
 	if len(m.splits) > 0 {
-		var segs []config.TrimSettings
 		for _, r := range m.splits {
-			segs = append(segs, config.TrimSettings{
+			result.Segments = append(result.Segments, config.TrimSettings{
 				Start:    r.start,
 				Duration: r.end - r.start,
 			})
 		}
-		return &TrimResult{Segments: segs}
+		return result
 	}
 
 	// If word selection was used and has selections, use those segments
 	if m.mode == modeSelect || m.hasWordSelection() {
 		segs := m.selectedSegments()
 		if len(segs) > 0 {
-			return &TrimResult{Segments: segs}
+			result.Segments = segs
+			return result
 		}
 	}
 
 	// Default: single segment from slider handles
-	return &TrimResult{
-		Segments: []config.TrimSettings{
-			{
-				Start:    m.startPos,
-				Duration: m.endPos - m.startPos,
-			},
+	result.Segments = []config.TrimSettings{
+		{
+			Start:    m.startPos,
+			Duration: m.endPos - m.startPos,
 		},
 	}
+	return result
 }
 
 func (m Model) hasWordSelection() bool {
@@ -863,8 +904,8 @@ func (m Model) hasWordSelection() bool {
 }
 
 // Run launches the trim slider as a full-screen BubbleTea program.
-func Run(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) (*TrimResult, error) {
-	m := New(duration, transcript, silenceCh, waveformCh, sponsorSegs, chapters...)
+func Run(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
+	m := New(duration, transcript, silenceCh, waveformCh, sponsorSegs, gifEnabled, chapters...)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()

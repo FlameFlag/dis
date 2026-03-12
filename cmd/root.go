@@ -260,6 +260,7 @@ func resolveTrim(ctx context.Context, s *config.Settings, links, localFiles []st
 	if result == nil {
 		return nil, tui.ErrUserCancelled
 	}
+	s.GIF = result.GIF
 	return result.Segments, nil
 }
 

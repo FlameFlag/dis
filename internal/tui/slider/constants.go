@@ -15,4 +15,7 @@ const (
 	AnimFPS       = 60
 	SpringFreq    = 6.0
 	SpringDamping = 0.9
+
+	MinTwoPaneWidth = 80 // minimum terminal width for two-pane split layout
+	LeftPaneRatio   = 55 // percentage of width allocated to timeline pane
 )

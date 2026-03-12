@@ -34,6 +34,9 @@ type keyMap struct {
 	Split       key.Binding
 	DeleteSplit key.Binding
 
+	// Format toggle
+	GIFToggle key.Binding
+
 	Backspace key.Binding
 	Cancel    key.Binding
 }
@@ -66,6 +69,8 @@ var keys = keyMap{
 
 	Split:       key.NewBinding(key.WithKeys("s")),
 	DeleteSplit: key.NewBinding(key.WithKeys("d")),
+
+	GIFToggle: key.NewBinding(key.WithKeys("g")),
 
 	Backspace: key.NewBinding(key.WithKeys("backspace")),
 	Cancel:    key.NewBinding(key.WithKeys("ctrl+c")),

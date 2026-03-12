@@ -78,7 +78,7 @@ func getTrimSettings(ctx context.Context, links, localFiles []string) (*slider.T
 	waveformCh := startWaveformExtraction(ctx, links)
 	sbSegments := fetchSponsorSegments(ctx, links)
 
-	return slider.Run(duration, transcript, silenceCh, waveformCh, sbSegments, markers...)
+	return slider.Run(duration, transcript, silenceCh, waveformCh, sbSegments, settings.GIF, markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {
