@@ -75,9 +75,10 @@ func getTrimSettings(ctx context.Context, links, localFiles []string) (*slider.T
 
 	markers, transcript := extractSliderData(ctx, info, links)
 	silenceCh := startSilenceDetection(ctx, links)
+	waveformCh := startWaveformExtraction(ctx, links)
 	sbSegments := fetchSponsorSegments(ctx, links)
 
-	return slider.Run(duration, transcript, silenceCh, sbSegments, markers...)
+	return slider.Run(duration, transcript, silenceCh, waveformCh, sbSegments, markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {
@@ -148,6 +149,26 @@ func startSilenceDetection(ctx context.Context, links []string) chan []subtitle.
 		}
 		if len(sil) > 0 {
 			ch <- sil
+		}
+	}()
+	return ch
+}
+
+func startWaveformExtraction(ctx context.Context, links []string) chan []subtitle.WaveformSample {
+	if len(links) == 0 {
+		return nil
+	}
+
+	ch := make(chan []subtitle.WaveformSample, 1)
+	go func() {
+		defer close(ch)
+		samples, err := subtitle.ExtractWaveform(ctx, links[0], 200)
+		if err != nil {
+			log.Debug("Waveform extraction failed", "err", err)
+			return
+		}
+		if len(samples) > 0 {
+			ch <- samples
 		}
 	}()
 	return ch

@@ -79,6 +79,10 @@ type Model struct {
 	silenceIntervals []subtitle.SilenceInterval
 	silenceCh        <-chan []subtitle.SilenceInterval
 
+	// Waveform data (async)
+	waveform   []subtitle.WaveformSample
+	waveformCh <-chan []subtitle.WaveformSample
+
 	// SponsorBlock segments
 	sponsorSegments []sponsorblock.Segment
 
@@ -109,6 +113,11 @@ type SilenceDetectedMsg struct {
 	Intervals []subtitle.SilenceInterval
 }
 
+// WaveformReadyMsg is sent when background waveform extraction completes.
+type WaveformReadyMsg struct {
+	Samples []subtitle.WaveformSample
+}
+
 type animTickMsg struct{}
 
 func animTick() tea.Cmd {
@@ -126,7 +135,7 @@ func (m *Model) triggerAnim() tea.Cmd {
 }
 
 // New creates a new trim slider model.
-func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) Model {
+func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) Model {
 	m := Model{
 		duration:        duration,
 		startPos:        0,
@@ -135,6 +144,7 @@ func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []su
 		chapters:        chapters,
 		transcript:      transcript,
 		silenceCh:       silenceCh,
+		waveformCh:      waveformCh,
 		sponsorSegments: sponsorSegs,
 		viewportLocked:  true,
 		selectAnchor:    -1,
@@ -150,17 +160,31 @@ func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []su
 }
 
 func (m Model) Init() tea.Cmd {
+	var cmds []tea.Cmd
+
 	if m.silenceCh != nil {
 		ch := m.silenceCh
-		return func() tea.Msg {
+		cmds = append(cmds, func() tea.Msg {
 			intervals, ok := <-ch
 			if !ok || len(intervals) == 0 {
 				return SilenceDetectedMsg{}
 			}
 			return SilenceDetectedMsg{Intervals: intervals}
-		}
+		})
 	}
-	return nil
+
+	if m.waveformCh != nil {
+		ch := m.waveformCh
+		cmds = append(cmds, func() tea.Msg {
+			samples, ok := <-ch
+			if !ok || len(samples) == 0 {
+				return WaveformReadyMsg{}
+			}
+			return WaveformReadyMsg{Samples: samples}
+		})
+	}
+
+	return tea.Batch(cmds...)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -170,6 +194,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case SilenceDetectedMsg:
 		m.silenceIntervals = msg.Intervals
+		return m, nil
+	case WaveformReadyMsg:
+		m.waveform = msg.Samples
 		return m, nil
 	case animTickMsg:
 		if !m.animating {
@@ -836,8 +863,8 @@ func (m Model) hasWordSelection() bool {
 }
 
 // Run launches the trim slider as a full-screen BubbleTea program.
-func Run(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) (*TrimResult, error) {
-	m := New(duration, transcript, silenceCh, sponsorSegs, chapters...)
+func Run(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, sponsorSegs []sponsorblock.Segment, chapters ...ChapterMarker) (*TrimResult, error) {
+	m := New(duration, transcript, silenceCh, waveformCh, sponsorSegs, chapters...)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()

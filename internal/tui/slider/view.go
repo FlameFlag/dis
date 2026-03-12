@@ -69,6 +69,11 @@ func (m Model) View() string {
 		b.WriteString("  " + m.renderSlider(w) + "\n")
 	}
 
+	// 6a. Waveform row (below slider track)
+	if wf := m.renderWaveform(w); wf != "" {
+		b.WriteString("  " + wf + "\n")
+	}
+
 	// 6b. SponsorBlock segments row
 	if len(m.sponsorSegments) > 0 {
 		b.WriteString("  " + m.renderSponsorSegments(w) + "\n")
@@ -299,6 +304,51 @@ func (m Model) renderSliderWithSegments(width int) string {
 			}
 		}
 	}
+	return b.String()
+}
+
+// renderWaveform renders an amplitude sparkline row aligned with the slider.
+func (m Model) renderWaveform(width int) string {
+	if len(m.waveform) == 0 {
+		return ""
+	}
+
+	sparks := []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+
+	var b strings.Builder
+	startIdx := int(m.animStartPos / m.duration * float64(width))
+	endIdx := int(m.animEndPos / m.duration * float64(width))
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if endIdx >= width {
+		endIdx = width - 1
+	}
+
+	for i := 0; i < width; i++ {
+		sampleIdx := i * len(m.waveform) / width
+		if sampleIdx >= len(m.waveform) {
+			sampleIdx = len(m.waveform) - 1
+		}
+		amp := m.waveform[sampleIdx].Amplitude
+
+		level := int(amp * float64(len(sparks)-1))
+		if level < 0 {
+			level = 0
+		}
+		if level >= len(sparks) {
+			level = len(sparks) - 1
+		}
+
+		ch := string(sparks[level])
+
+		if i >= startIdx && i <= endIdx {
+			b.WriteString(accentStyle.Render(ch))
+		} else {
+			b.WriteString(dimStyle.Render(ch))
+		}
+	}
+
 	return b.String()
 }
 
