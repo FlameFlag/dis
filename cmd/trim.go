@@ -6,6 +6,7 @@ import (
 	"dis/internal/convert"
 	"dis/internal/download"
 	"dis/internal/sponsorblock"
+	"dis/internal/storyboard"
 	"dis/internal/subtitle"
 	"dis/internal/tui"
 	"dis/internal/tui/slider"
@@ -74,9 +75,10 @@ func getTrimSettings(ctx context.Context, links, localFiles []string) (*slider.T
 	markers, transcript := extractSliderData(ctx, info, links)
 	silenceCh := startSilenceDetection(ctx, links)
 	waveformCh := startWaveformExtraction(ctx, links)
+	storyboardCh := startStoryboardFetch(ctx, info)
 	sbSegments := fetchSponsorSegments(ctx, links)
 
-	return slider.Run(duration, transcript, silenceCh, waveformCh, sbSegments, settings.GIF, markers...)
+	return slider.Run(duration, transcript, silenceCh, waveformCh, storyboardCh, sbSegments, settings.GIF, markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {
@@ -170,6 +172,13 @@ func startWaveformExtraction(ctx context.Context, links []string) chan []subtitl
 		}
 	}()
 	return ch
+}
+
+func startStoryboardFetch(ctx context.Context, info *ytdlp.ExtractedInfo) <-chan *storyboard.StoryboardData {
+	if info == nil {
+		return nil
+	}
+	return storyboard.StartFetch(ctx, info)
 }
 
 func fetchSponsorSegments(ctx context.Context, links []string) []sponsorblock.Segment {
