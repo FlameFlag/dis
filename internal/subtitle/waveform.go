@@ -27,7 +27,7 @@ func ExtractWaveform(ctx context.Context, rawURL string, numSamples int) ([]Wave
 	if err != nil {
 		return nil, fmt.Errorf("creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	audioPath, err := downloadAudio(ctx, rawURL, tmpDir)
 	if err != nil {

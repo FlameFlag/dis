@@ -115,15 +115,15 @@ func (m Model) renderIntegratedSlider(width int) string {
 		silence := m.isSilenceAt(seconds)
 
 		// Handle positions
-		switch {
-		case i == startIdx:
+		switch i {
+		case startIdx:
 			if m.adjustingStart {
 				b.WriteString(handleActiveStyle.Render("┃"))
 			} else {
 				b.WriteString(handleInactiveStyle.Render("│"))
 			}
 			continue
-		case i == endIdx:
+		case endIdx:
 			if !m.adjustingStart {
 				b.WriteString(handleActiveStyle.Render("┃"))
 			} else {
@@ -162,53 +162,6 @@ func (m Model) renderIntegratedSlider(width int) string {
 				b.WriteString(selectedTrack.Render("━"))
 			}
 		} else {
-			if silence {
-				b.WriteString(silenceOutStyle.Render("┈"))
-			} else {
-				b.WriteString(unselectedTrack.Render("─"))
-			}
-		}
-	}
-
-	return b.String()
-}
-
-// renderSlider is the original slider without waveform (used as fallback).
-func (m Model) renderSlider(width int) string {
-	var b strings.Builder
-
-	startIdx := int(m.animStartPos / m.duration * float64(width))
-	endIdx := int(m.animEndPos / m.duration * float64(width))
-	if startIdx < 0 {
-		startIdx = 0
-	}
-	if endIdx >= width {
-		endIdx = width - 1
-	}
-
-	for i := range width {
-		seconds := float64(i) / float64(width) * m.duration
-		silence := m.isSilenceAt(seconds)
-		switch {
-		case i == startIdx:
-			if m.adjustingStart {
-				b.WriteString(handleActiveStyle.Render("┃"))
-			} else {
-				b.WriteString(handleInactiveStyle.Render("│"))
-			}
-		case i == endIdx:
-			if !m.adjustingStart {
-				b.WriteString(handleActiveStyle.Render("┃"))
-			} else {
-				b.WriteString(handleInactiveStyle.Render("│"))
-			}
-		case i > startIdx && i < endIdx:
-			if silence {
-				b.WriteString(silenceInStyle.Render("┄"))
-			} else {
-				b.WriteString(selectedTrack.Render("━"))
-			}
-		default:
 			if silence {
 				b.WriteString(silenceOutStyle.Render("┈"))
 			} else {
@@ -434,15 +387,6 @@ func (m Model) renderSplitsPanelLines(width int) []string {
 	lines = append(lines, " "+dimStyle.Render(footerLabel+strings.Repeat("─", footerFill)))
 
 	return lines
-}
-
-// renderSplitsPanel kept for compatibility, returns joined string.
-func (m Model) renderSplitsPanel(width int) string {
-	lines := m.renderSplitsPanelLines(width)
-	if len(lines) == 0 {
-		return ""
-	}
-	return strings.Join(lines, "\n") + "\n"
 }
 
 func (m Model) renderChapterLabels(width int) string {

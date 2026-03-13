@@ -76,15 +76,19 @@ func genNushellCompletion(cmd *cobra.Command, w io.Writer) error {
 		[]string{"discord", "discord-nitro", "twitter", "telegram"})
 
 	// Emit the extern declaration.
-	fmt.Fprintf(w, "export extern \"%s\" [\n", cmd.Name())
-	fmt.Fprintf(w, "  ...input: string              # Input URLs or file paths\n")
+	if _, err := fmt.Fprintf(w, "export extern \"%s\" [\n", cmd.Name()); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "  ...input: string              # Input URLs or file paths\n"); err != nil {
+		return err
+	}
 
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		writeNushellFlag(w, f, cmd.Name())
 	})
 
-	fmt.Fprintf(w, "]\n")
-	return nil
+	_, err := fmt.Fprintf(w, "]\n")
+	return err
 }
 
 func writeNushellCompleter(w io.Writer, name string, values []string) {
@@ -92,9 +96,9 @@ func writeNushellCompleter(w io.Writer, name string, values []string) {
 	for i, v := range values {
 		quoted[i] = fmt.Sprintf("%q", v)
 	}
-	fmt.Fprintf(w, "def \"%s\" [] {\n", name)
-	fmt.Fprintf(w, "  [%s]\n", strings.Join(quoted, " "))
-	fmt.Fprintf(w, "}\n\n")
+	_, _ = fmt.Fprintf(w, "def \"%s\" [] {\n", name)
+	_, _ = fmt.Fprintf(w, "  [%s]\n", strings.Join(quoted, " "))
+	_, _ = fmt.Fprintf(w, "}\n\n")
 }
 
 func writeNushellFlag(w io.Writer, f *pflag.Flag, cmdName string) {
@@ -107,7 +111,7 @@ func writeNushellFlag(w io.Writer, f *pflag.Flag, cmdName string) {
 	sb.WriteString(f.Name)
 
 	if f.Shorthand != "" {
-		sb.WriteString(fmt.Sprintf(" (-%s)", f.Shorthand))
+		fmt.Fprintf(&sb, " (-%s)", f.Shorthand)
 	}
 
 	nuType := nushellFlagType(f)
@@ -115,7 +119,7 @@ func writeNushellFlag(w io.Writer, f *pflag.Flag, cmdName string) {
 		sb.WriteString(": ")
 		sb.WriteString(nuType)
 		if completer, ok := nushellCompleters[f.Name]; ok {
-			sb.WriteString(fmt.Sprintf("@\"%s\"", completer))
+			fmt.Fprintf(&sb, "@\"%s\"", completer)
 		}
 	}
 
@@ -126,7 +130,7 @@ func writeNushellFlag(w io.Writer, f *pflag.Flag, cmdName string) {
 		line += strings.Repeat(" ", pad) + "# " + f.Usage
 	}
 
-	fmt.Fprintf(w, "%s\n", line)
+	_, _ = fmt.Fprintf(w, "%s\n", line)
 }
 
 // nushellFlagType returns the nushell type annotation for a pflag flag.

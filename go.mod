@@ -4,7 +4,6 @@ go 1.25.6
 
 require (
 	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410
-
 	github.com/BurntSushi/toml v1.6.0
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/bubbles v1.0.0
@@ -18,6 +17,8 @@ require (
 	github.com/lrstanley/go-ytdlp v1.3.2
 	github.com/spf13/cobra v1.10.2
 )
+
+require github.com/spf13/pflag v1.0.10
 
 require (
 	github.com/ProtonMail/go-crypto v1.4.0 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/muesli/roff v0.1.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/crypto v0.48.0 // indirect

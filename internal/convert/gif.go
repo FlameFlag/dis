@@ -28,7 +28,7 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	if err != nil {
 		return fmt.Errorf("creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	duration := info.Duration
 	if trimSettings != nil {
