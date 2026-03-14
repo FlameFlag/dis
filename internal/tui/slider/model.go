@@ -35,6 +35,7 @@ type ChapterMarker struct {
 type TrimResult struct {
 	Segments []config.TrimSettings
 	GIF      bool
+	Speed    float64
 }
 
 // Model is the BubbleTea model for the trim slider.
@@ -88,10 +89,11 @@ type Model struct {
 	splits []trimRange
 
 	// GIF export
-	gifMode       bool
-	gifAvailable  bool
-	warning       string
-	warningExpiry time.Time
+	gifMode         bool
+	gifAvailable    bool
+	speedMultiplier float64
+	warning         string
+	warningExpiry   time.Time
 
 	// Terminal height (for conditional thumbnail rendering)
 	height int
@@ -160,6 +162,7 @@ func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []su
 		selectAnchor:    -1,
 		gifMode:         gifEnabled,
 		gifAvailable:    gifErr == nil,
+		speedMultiplier: 1.0,
 		animSpring:      harmonica.NewSpring(harmonica.FPS(AnimFPS), SpringFreq, SpringDamping),
 		animStartPos:    0,
 		animEndPos:      duration,
@@ -268,7 +271,7 @@ func (m Model) Result() *TrimResult {
 		return nil
 	}
 
-	result := &TrimResult{GIF: m.gifMode}
+	result := &TrimResult{GIF: m.gifMode, Speed: m.speedMultiplier}
 
 	// Saved splits take priority
 	if len(m.splits) > 0 {

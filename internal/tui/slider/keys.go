@@ -35,7 +35,8 @@ type keyMap struct {
 	DeleteSplit key.Binding
 
 	// Format toggle
-	GIFToggle key.Binding
+	GIFToggle   key.Binding
+	SpeedToggle key.Binding
 
 	Backspace key.Binding
 	Cancel    key.Binding
@@ -70,7 +71,8 @@ var keys = keyMap{
 	Split:       key.NewBinding(key.WithKeys("s")),
 	DeleteSplit: key.NewBinding(key.WithKeys("d")),
 
-	GIFToggle: key.NewBinding(key.WithKeys("g")),
+	GIFToggle:   key.NewBinding(key.WithKeys("g")),
+	SpeedToggle: key.NewBinding(key.WithKeys("v")),
 
 	Backspace: key.NewBinding(key.WithKeys("backspace")),
 	Cancel:    key.NewBinding(key.WithKeys("ctrl+c")),

@@ -359,7 +359,11 @@ func (m Model) renderInlineInput() string {
 
 func (m Model) renderFormatBadge() string {
 	if m.gifMode {
-		return accentBold.Render("GIF")
+		badge := accentBold.Render("GIF")
+		if m.speedMultiplier > 1.0 {
+			badge += " " + accentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
+		}
+		return badge
 	}
 	return faintStyle.Render("MP4")
 }

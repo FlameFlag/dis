@@ -50,6 +50,7 @@ func (m Model) renderHelpBar() string {
 			helpEntry("s", "split"),
 			helpEntry("d", "undo"),
 			helpEntry("g", "gif"),
+			helpEntry("v", "speed"),
 			helpEntry("t", "words"),
 			helpEntry("⏎", "done"),
 		}, sep)
@@ -67,6 +68,7 @@ func (m Model) renderHelpBar() string {
 		helpEntry("s", "split"),
 		helpEntry("d", "undo"),
 		helpEntry("g", "gif"),
+		helpEntry("v", "speed"),
 		helpEntry("⏎", "done"),
 	}, sep)
 	return line1 + "\n" + line2

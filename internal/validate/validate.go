@@ -146,6 +146,30 @@ func GIFQuality(quality int) error {
 	return nil
 }
 
+// GIFLossyQuality checks that the GIF lossy quality is within valid range.
+func GIFLossyQuality(quality int) error {
+	if quality < 1 || quality > 100 {
+		return fmt.Errorf("GIF lossy quality must be between 1 and 100 (got %d)", quality)
+	}
+	return nil
+}
+
+// GIFMotionQuality checks that the GIF motion quality is within valid range.
+func GIFMotionQuality(quality int) error {
+	if quality < 1 || quality > 100 {
+		return fmt.Errorf("GIF motion quality must be between 1 and 100 (got %d)", quality)
+	}
+	return nil
+}
+
+// GIFSpeed checks that the GIF speed multiplier is within valid range.
+func GIFSpeed(speed float64) error {
+	if speed < 1.0 || speed > 4.0 {
+		return fmt.Errorf("GIF speed must be between 1.0 and 4.0 (got %.1f)", speed)
+	}
+	return nil
+}
+
 // VideoCodec checks whether the given codec string is known.
 func VideoCodec(codec string) error {
 	if codec == "" {

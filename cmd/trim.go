@@ -65,20 +65,76 @@ func parseTrimRange(input string) (*config.TrimSettings, error) {
 	}, nil
 }
 
-func getTrimSettings(ctx context.Context, links, localFiles []string) (*slider.TrimResult, error) {
+// sliderData holds pre-fetched data needed to run the trim slider.
+type sliderData struct {
+	duration    float64
+	markers     []slider.ChapterMarker
+	transcript  subtitle.Transcript
+	silenceData []subtitle.SilenceInterval
+	waveform    []subtitle.WaveformSample
+	storyboard  *storyboard.StoryboardData
+	sbSegments  []sponsorblock.Segment
+}
+
+func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderData {
 	duration, info := probeDuration(ctx, links, localFiles)
 	if duration <= 0 {
-		log.Warn("Could not determine a valid video duration. Skipping trim.")
-		return nil, nil
+		return nil
 	}
 
 	markers, transcript := extractSliderData(ctx, info, links)
+
+	// Fetch async data synchronously and store results
 	silenceCh := startSilenceDetection(ctx, links)
 	waveformCh := startWaveformExtraction(ctx, links)
 	storyboardCh := startStoryboardFetch(ctx, info)
-	sbSegments := fetchSponsorSegments(ctx, links)
 
-	return slider.Run(duration, transcript, silenceCh, waveformCh, storyboardCh, sbSegments, settings.GIF, markers...)
+	var silenceData []subtitle.SilenceInterval
+	if silenceCh != nil {
+		silenceData = <-silenceCh
+	}
+	var waveform []subtitle.WaveformSample
+	if waveformCh != nil {
+		waveform = <-waveformCh
+	}
+	var sb *storyboard.StoryboardData
+	if storyboardCh != nil {
+		sb = <-storyboardCh
+	}
+
+	return &sliderData{
+		duration:    duration,
+		markers:     markers,
+		transcript:  transcript,
+		silenceData: silenceData,
+		waveform:    waveform,
+		storyboard:  sb,
+		sbSegments:  fetchSponsorSegments(ctx, links),
+	}
+}
+
+func runSlider(data *sliderData, gifEnabled bool) (*slider.TrimResult, error) {
+	// Wrap cached data in channels that return immediately
+	var silenceCh chan []subtitle.SilenceInterval
+	if data.silenceData != nil {
+		silenceCh = make(chan []subtitle.SilenceInterval, 1)
+		silenceCh <- data.silenceData
+		close(silenceCh)
+	}
+	var waveformCh chan []subtitle.WaveformSample
+	if data.waveform != nil {
+		waveformCh = make(chan []subtitle.WaveformSample, 1)
+		waveformCh <- data.waveform
+		close(waveformCh)
+	}
+	var storyboardCh chan *storyboard.StoryboardData
+	if data.storyboard != nil {
+		storyboardCh = make(chan *storyboard.StoryboardData, 1)
+		storyboardCh <- data.storyboard
+		close(storyboardCh)
+	}
+
+	return slider.Run(data.duration, data.transcript, silenceCh, waveformCh, storyboardCh, data.sbSegments, gifEnabled, data.markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {

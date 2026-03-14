@@ -80,7 +80,10 @@ func init() {
 	f.BoolVar(&settings.GIF, "gif", false, "Export as GIF using gifski")
 	f.IntVar(&settings.GIFFps, "gif-fps", 15, "GIF frame rate (1-50)")
 	f.IntVar(&settings.GIFWidth, "gif-width", 480, "GIF max width in pixels")
-	f.IntVar(&settings.GIFQuality, "gif-quality", 90, "GIF quality (1-100)")
+	f.IntVar(&settings.GIFQuality, "gif-quality", 80, "GIF quality (1-100)")
+	f.IntVar(&settings.GIFLossyQuality, "gif-lossy-quality", 80, "GIF lossy compression quality (1-100, lower = smaller but grainier)")
+	f.IntVar(&settings.GIFMotionQuality, "gif-motion-quality", 80, "GIF motion quality (1-100, lower = smaller but smears motion)")
+	f.Float64Var(&settings.GIFSpeed, "gif-speed", 1.0, "GIF playback speed multiplier (e.g. 1.5, 2.0)")
 	rootCmd.MarkFlagsMutuallyExclusive("chapter", "trim")
 	rootCmd.MarkFlagsMutuallyExclusive("crf", "target-size")
 	rootCmd.MarkFlagsMutuallyExclusive("gif", "video-codec")
@@ -142,6 +145,9 @@ func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 			validate.GIFFps(s.GIFFps),
 			validate.GIFWidth(s.GIFWidth),
 			validate.GIFQuality(s.GIFQuality),
+			validate.GIFLossyQuality(s.GIFLossyQuality),
+			validate.GIFMotionQuality(s.GIFMotionQuality),
+			validate.GIFSpeed(s.GIFSpeed),
 		)
 	}
 	return errs
@@ -177,7 +183,7 @@ func run(ctx context.Context, s *config.Settings) error {
 		return runChapterMode(ctx, s, links)
 	}
 
-	trimSegments, err := resolveTrim(ctx, s, links, localFiles)
+	trimSegments, err := resolveTrimWithSpeedPrompt(ctx, s, links, localFiles)
 	if errors.Is(err, tui.ErrUserCancelled) {
 		return nil
 	}
@@ -240,9 +246,9 @@ func resolveOutput(s *config.Settings) error {
 	return nil
 }
 
-func resolveTrim(ctx context.Context, s *config.Settings, links, localFiles []string) ([]config.TrimSettings, error) {
+func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, localFiles []string) ([]config.TrimSettings, error) {
 	if s.Trim == "" {
-		return nil, nil
+		return promptGIFSpeedIfNeeded(s, nil, ctx, localFiles)
 	}
 
 	if s.Trim != config.TrimInteractive {
@@ -250,18 +256,71 @@ func resolveTrim(ctx context.Context, s *config.Settings, links, localFiles []st
 		if err != nil {
 			return nil, fmt.Errorf("invalid trim range %q: %w", s.Trim, err)
 		}
-		return []config.TrimSettings{*ts}, nil
+		segments := []config.TrimSettings{*ts}
+		return promptGIFSpeedIfNeeded(s, segments, ctx, localFiles)
 	}
 
-	result, err := getTrimSettings(ctx, links, localFiles)
+	// Interactive: fetch data once, loop only re-runs the slider on go-back
+	data := fetchSliderData(ctx, links, localFiles)
+	if data == nil {
+		log.Warn("Could not determine a valid video duration. Skipping trim.")
+		return nil, nil
+	}
+
+	for {
+		result, err := runSlider(data, s.GIF)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
+			return nil, tui.ErrUserCancelled
+		}
+		s.GIF = result.GIF
+		s.GIFSpeed = result.Speed
+
+		segments, err := promptGIFSpeedIfNeeded(s, result.Segments, ctx, localFiles)
+		if err != nil {
+			return nil, err
+		}
+		if segments != nil {
+			return segments, nil
+		}
+		// nil segments means go-back — re-run slider
+		s.GIFSpeed = 0
+	}
+}
+
+// promptGIFSpeedIfNeeded shows the speed prompt for long GIFs.
+// Returns nil segments (no error) as a signal to go back to the slider.
+func promptGIFSpeedIfNeeded(s *config.Settings, segments []config.TrimSettings, ctx context.Context, localFiles []string) ([]config.TrimSettings, error) {
+	if !s.GIF || s.GIFSpeed > 1.0 {
+		return segments, nil
+	}
+
+	var gifDuration float64
+	for _, seg := range segments {
+		gifDuration += seg.Duration
+	}
+	if gifDuration <= 0 && len(localFiles) > 0 {
+		if d, err := convert.ProbeDuration(ctx, localFiles[0]); err == nil {
+			gifDuration = d
+		}
+	}
+	if gifDuration < 4 {
+		return segments, nil
+	}
+
+	speed, err := convert.PromptGIFSpeed(gifDuration)
 	if err != nil {
-		return nil, err
+		return segments, nil
 	}
-	if result == nil {
-		return nil, tui.ErrUserCancelled
+	if speed == convert.GIFSpeedGoBack {
+		return nil, nil
 	}
-	s.GIF = result.GIF
-	return result.Segments, nil
+	if speed > 1.0 {
+		s.GIFSpeed = speed
+	}
+	return segments, nil
 }
 
 func downloadLinks(ctx context.Context, s *config.Settings, links []string, trim *config.TrimSettings, tempDirs *[]string) []*download.DownloadResult {

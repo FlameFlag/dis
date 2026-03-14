@@ -58,6 +58,8 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	gifskiArgs := []string{
 		"--fps", fmt.Sprintf("%d", s.GIFFps),
 		"--quality", fmt.Sprintf("%d", s.GIFQuality),
+		"--lossy-quality", fmt.Sprintf("%d", s.GIFLossyQuality),
+		"--motion-quality", fmt.Sprintf("%d", s.GIFMotionQuality),
 		"--width", fmt.Sprintf("%d", s.GIFWidth),
 		"--quiet",
 		"-o", outputPath,
@@ -97,7 +99,12 @@ func buildFrameExtractionArgs(input, framePattern string, s *config.Settings, tr
 		args = append(args, trimSettings.FFmpegArgs()...)
 	}
 	args = append(args, "-i", input)
-	vf := fmt.Sprintf("fps=%d,scale=%d:-2", s.GIFFps, s.GIFWidth)
+	var vf string
+	if s.GIFSpeed > 1.0 {
+		vf = fmt.Sprintf("setpts=PTS/%g,fps=%d,scale=%d:-2", s.GIFSpeed, s.GIFFps, s.GIFWidth)
+	} else {
+		vf = fmt.Sprintf("fps=%d,scale=%d:-2", s.GIFFps, s.GIFWidth)
+	}
 	args = append(args, "-vf", vf)
 	args = append(args, framePattern)
 	return args

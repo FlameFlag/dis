@@ -119,6 +119,35 @@ func changeCrfValue(s *config.Settings) bool {
 	}
 }
 
+// GIFSpeedGoBack is a sentinel value indicating the user wants to go back to the trim slider.
+const GIFSpeedGoBack = -1.0
+
+// PromptGIFSpeed asks the user to pick a playback speed for the GIF.
+func PromptGIFSpeed(duration float64) (float64, error) {
+	desc := fmt.Sprintf("GIF is %.0fs — speeding up reduces file size", duration)
+	if duration >= 6 {
+		desc = fmt.Sprintf("GIF is %.0fs — long GIFs produce large files, speeding up helps", duration)
+	}
+
+	opts := []huh.Option[float64]{
+		huh.NewOption("1x (no change)", 1.0),
+		huh.NewOption("1.5x", 1.5),
+		huh.NewOption("2x", 2.0),
+	}
+	if duration >= 12 {
+		opts = append(opts, huh.NewOption("Go back and trim shorter", GIFSpeedGoBack))
+	}
+
+	var choice float64
+	err := huh.NewSelect[float64]().
+		Title("Speed up GIF playback?").
+		Description(desc).
+		Options(opts...).
+		Value(&choice).
+		Run()
+	return choice, err
+}
+
 // checkSkipConversion asks the user whether to skip conversion.
 // Returns true if conversion should be skipped.
 func checkSkipConversion(s *config.Settings, trimSettings *config.TrimSettings) bool {
