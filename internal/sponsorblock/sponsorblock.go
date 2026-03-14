@@ -2,15 +2,15 @@ package sponsorblock
 
 import (
 	"context"
+	"dis/internal/cache"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 // Category is a typed SponsorBlock segment category.
@@ -56,9 +56,7 @@ type Segment struct {
 }
 
 const (
-	apiBase  = "https://sponsor.ajay.app/api/skipSegments"
-	cacheTTL = 48 * time.Hour
-	cleanTTL = 7 * 24 * time.Hour
+	apiBase = "https://sponsor.ajay.app/api/skipSegments"
 )
 
 // apiResponse is the JSON structure returned by the SponsorBlock API.
@@ -66,12 +64,6 @@ type apiResponse struct {
 	Segment    [2]float64 `json:"segment"`
 	Category   Category   `json:"category"`
 	ActionType string     `json:"actionType"`
-}
-
-// cacheEntry is stored as JSON in the cache file.
-type cacheEntry struct {
-	FetchedAt time.Time `json:"fetched_at"`
-	Segments  []Segment `json:"segments"` // nil means "no segments found"
 }
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
@@ -91,33 +83,39 @@ func ExtractVideoID(rawURL string) string {
 	return ""
 }
 
+func openCache() (*cache.Store, bool) {
+	s, err := cache.Open()
+	if err != nil {
+		log.Debug("cache unavailable", "err", err)
+		return nil, false
+	}
+	return s, true
+}
+
 // GetSegments returns SponsorBlock segments for a video, using a local cache.
 func GetSegments(ctx context.Context, videoID string) ([]Segment, error) {
-	cacheDir := cacheDirectory()
-
-	// Lazy cleanup of old cache entries
-	cleanOldEntries(cacheDir)
-
-	// Check cache
-	cachePath := filepath.Join(cacheDir, videoID+".json")
-	if entry, err := readCache(cachePath); err == nil {
-		if time.Since(entry.FetchedAt) < cacheTTL {
-			return entry.Segments, nil
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		store.DeleteExpired()
+		if data, ok := store.GetSponsorBlock(videoID); ok {
+			var segments []Segment
+			if json.Unmarshal(data, &segments) == nil {
+				return segments, nil
+			}
 		}
 	}
 
-	// Fetch from API
 	segments, err := fetchSegments(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Cache result (including nil/empty)
-	writeCache(cachePath, cacheEntry{
-		FetchedAt: time.Now(),
-		Segments:  segments,
-	})
-
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		if blob, err := json.Marshal(segments); err == nil {
+			store.SetSponsorBlock(videoID, blob)
+		}
+	}
 	return segments, nil
 }
 
@@ -158,52 +156,4 @@ func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
 		})
 	}
 	return segments, nil
-}
-
-func cacheDirectory() string {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		dir = os.TempDir()
-	}
-	return filepath.Join(dir, "dis", "sponsorblock")
-}
-
-func readCache(path string) (*cacheEntry, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var entry cacheEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
-		return nil, err
-	}
-	return &entry, nil
-}
-
-func writeCache(path string, entry cacheEntry) {
-	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(path, data, 0o644)
-}
-
-func cleanOldEntries(dir string) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		if time.Since(info.ModTime()) > cleanTTL {
-			_ = os.Remove(filepath.Join(dir, e.Name()))
-		}
-	}
 }

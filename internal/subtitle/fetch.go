@@ -2,6 +2,8 @@ package subtitle
 
 import (
 	"context"
+	"dis/internal/cache"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +13,15 @@ import (
 	"github.com/lrstanley/go-ytdlp"
 )
 
+func openCache() (*cache.Store, bool) {
+	s, err := cache.Open()
+	if err != nil {
+		log.Debug("cache unavailable", "err", err)
+		return nil, false
+	}
+	return s, true
+}
+
 // FetchFromMetadata fetches and parses subtitles from yt-dlp metadata.
 // Priority: manual English subs > auto English captions > first available language.
 // Returns nil, nil if no subtitles are available.
@@ -19,6 +30,38 @@ func FetchFromMetadata(ctx context.Context, info *ytdlp.ExtractedInfo) (Transcri
 		return nil, nil
 	}
 
+	videoID := info.ID
+	if videoID != "" {
+		if store, ok := openCache(); ok {
+			defer store.Close()
+			store.DeleteExpired()
+			if data, ok := store.GetTranscript(videoID); ok {
+				var transcript Transcript
+				if json.Unmarshal(data, &transcript) == nil {
+					log.Debug("Transcript cache hit", "videoID", videoID)
+					return transcript, nil
+				}
+			}
+		}
+	}
+
+	transcript, err := fetchFromMetadataUncached(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	if videoID != "" && transcript != nil {
+		if store, ok := openCache(); ok {
+			defer store.Close()
+			if blob, err := json.Marshal(transcript); err == nil {
+				store.SetTranscript(videoID, blob)
+			}
+		}
+	}
+	return transcript, nil
+}
+
+func fetchFromMetadataUncached(ctx context.Context, info *ytdlp.ExtractedInfo) (Transcript, error) {
 	// Try manual subtitles first, then automatic captions
 	sources := []struct {
 		name string

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"dis/internal/util"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,6 +36,33 @@ var (
 // DetectSilence downloads the worst-quality audio from a URL and runs
 // FFmpeg silencedetect to find pauses. Designed to run in a background goroutine.
 func DetectSilence(ctx context.Context, rawURL string) ([]SilenceInterval, error) {
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		store.DeleteExpired()
+		if data, ok := store.GetSilence(rawURL); ok {
+			var intervals []SilenceInterval
+			if json.Unmarshal(data, &intervals) == nil {
+				log.Debug("Silence cache hit", "url", rawURL)
+				return intervals, nil
+			}
+		}
+	}
+
+	intervals, err := detectSilenceFromAudio(ctx, rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		if blob, err := json.Marshal(intervals); err == nil {
+			store.SetSilence(rawURL, blob)
+		}
+	}
+	return intervals, nil
+}
+
+func detectSilenceFromAudio(ctx context.Context, rawURL string) ([]SilenceInterval, error) {
 	tmpDir, err := os.MkdirTemp("", "dis-silence-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating temp dir: %w", err)

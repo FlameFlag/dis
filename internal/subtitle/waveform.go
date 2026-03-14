@@ -3,6 +3,7 @@ package subtitle
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -21,6 +22,33 @@ type WaveformSample struct {
 // ExtractWaveform downloads audio and extracts amplitude data.
 // numSamples is the desired number of output samples (typically terminal width).
 func ExtractWaveform(ctx context.Context, rawURL string, numSamples int) ([]WaveformSample, error) {
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		store.DeleteExpired()
+		if data, ok := store.GetWaveform(rawURL, numSamples); ok {
+			var samples []WaveformSample
+			if json.Unmarshal(data, &samples) == nil {
+				log.Debug("Waveform cache hit", "url", rawURL)
+				return samples, nil
+			}
+		}
+	}
+
+	samples, err := extractWaveformFromAudio(ctx, rawURL, numSamples)
+	if err != nil {
+		return nil, err
+	}
+
+	if store, ok := openCache(); ok {
+		defer store.Close()
+		if blob, err := json.Marshal(samples); err == nil {
+			store.SetWaveform(rawURL, numSamples, blob)
+		}
+	}
+	return samples, nil
+}
+
+func extractWaveformFromAudio(ctx context.Context, rawURL string, numSamples int) ([]WaveformSample, error) {
 	start := time.Now()
 
 	tmpDir, err := os.MkdirTemp("", "dis-waveform-*")
