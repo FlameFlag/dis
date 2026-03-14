@@ -3,11 +3,15 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+var migrateOnce sync.Once
+var expireOnce sync.Once
 
 // Store is a typed cache backed by GORM + SQLite.
 type Store struct{ db *gorm.DB }
@@ -38,12 +42,15 @@ func Open() (*Store, error) {
 	sqlDB.SetMaxIdleConns(1)
 	sqlDB.SetConnMaxLifetime(0)
 
-	err = db.AutoMigrate(
-		&MetadataCache{}, &TranscriptCache{},
-		&WaveformCache{}, &SilenceCache{}, &SponsorBlockCache{},
-	)
-	if err != nil {
-		return nil, err
+	var migrateErr error
+	migrateOnce.Do(func() {
+		migrateErr = db.AutoMigrate(
+			&MetadataCache{}, &TranscriptCache{},
+			&WaveformCache{}, &SilenceCache{}, &SponsorBlockCache{},
+		)
+	})
+	if migrateErr != nil {
+		return nil, migrateErr
 	}
 
 	return &Store{db}, nil
@@ -58,12 +65,14 @@ func (s *Store) Close() error {
 	return sqlDB.Close()
 }
 
-// DeleteExpired removes stale entries from all tables.
+// DeleteExpired removes stale entries from all tables. Runs at most once per process.
 func (s *Store) DeleteExpired() {
-	cutoff := cutoffUnix()
-	s.db.Where("created_at <= ?", cutoff).Delete(&MetadataCache{})
-	s.db.Where("created_at <= ?", cutoff).Delete(&TranscriptCache{})
-	s.db.Where("created_at <= ?", cutoff).Delete(&WaveformCache{})
-	s.db.Where("created_at <= ?", cutoff).Delete(&SilenceCache{})
-	s.db.Where("created_at <= ?", cutoff).Delete(&SponsorBlockCache{})
+	expireOnce.Do(func() {
+		cutoff := cutoffUnix()
+		s.db.Where("created_at <= ?", cutoff).Delete(&MetadataCache{})
+		s.db.Where("created_at <= ?", cutoff).Delete(&TranscriptCache{})
+		s.db.Where("created_at <= ?", cutoff).Delete(&WaveformCache{})
+		s.db.Where("created_at <= ?", cutoff).Delete(&SilenceCache{})
+		s.db.Where("created_at <= ?", cutoff).Delete(&SponsorBlockCache{})
+	})
 }
