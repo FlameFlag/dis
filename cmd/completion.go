@@ -1,12 +1,11 @@
 package cmd
 
 import (
+	"dis/internal/config"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-
-	"dis/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

@@ -116,7 +116,6 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 
 	wg.Wait()
 	err = cmd.Wait()
-
 	if err != nil {
 		mu.Lock()
 		errOutput := strings.Join(stderrLines, "\n")

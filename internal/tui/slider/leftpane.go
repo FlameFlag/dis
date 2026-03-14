@@ -74,7 +74,7 @@ func (m Model) renderLeftPane(width int) string {
 	// Thumbnail preview
 	if thumb := m.renderThumbnail(w); thumb != "" {
 		lines = append(lines, "")
-		for _, tl := range strings.Split(thumb, "\n") {
+		for tl := range strings.SplitSeq(thumb, "\n") {
 			lines = append(lines, " "+tl)
 		}
 	}

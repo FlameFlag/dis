@@ -60,7 +60,7 @@ func (m progressModel) renderBrailleWave(barW int) string {
 	filled := max(min(int(m.displayPct/100.0*float64(barW)), barW), 0)
 
 	var b strings.Builder
-	for i := 0; i < filled; i++ {
+	for i := range filled {
 		level := waveCenter + waveAmplitude*math.Sin(float64(i)*waveFrequency+m.wavePhase)
 		li := max(0, min(int(math.Round(level)), maxSparkLevel))
 		styled := lipgloss.NewStyle().Foreground(sparkColor(li)).Render(string(brailleLevels[li]))

@@ -71,8 +71,10 @@ type progressModel struct {
 	wavePhase   float64
 }
 
-type doneMsg struct{ err error }
-type infoMsg ProgressInfo
+type (
+	doneMsg struct{ err error }
+	infoMsg ProgressInfo
+)
 
 type tickMsg time.Time
 

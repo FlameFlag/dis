@@ -24,8 +24,10 @@ type spinnerModel struct {
 	doneCh    chan struct{}
 }
 
-type spinnerTickMsg struct{}
-type spinnerDoneMsg struct{ err error }
+type (
+	spinnerTickMsg struct{}
+	spinnerDoneMsg struct{ err error }
+)
 
 func (m spinnerModel) Init() tea.Cmd {
 	return tea.Batch(m.tick(), m.waitDone())

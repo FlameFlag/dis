@@ -18,7 +18,7 @@ func ParseVTT(data string) (Transcript, error) {
 	scanner := bufio.NewScanner(strings.NewReader(data))
 
 	// Skip BOM if present
-	var firstLine = true
+	firstLine := true
 
 	type state int
 	const (

@@ -1,11 +1,10 @@
 package slider
 
 import (
+	"dis/internal/sponsorblock"
 	"dis/internal/util"
 	"math"
 	"unicode"
-
-	"dis/internal/sponsorblock"
 )
 
 func (m Model) isSelectMode() bool {

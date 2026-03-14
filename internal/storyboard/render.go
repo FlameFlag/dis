@@ -235,7 +235,7 @@ func RenderHalfBlock(img image.Image, targetW, targetH int) string {
 
 	var b strings.Builder
 	for y := 0; y < pixH; y += 2 {
-		for x := 0; x < targetW; x++ {
+		for x := range targetW {
 			tr, tg, tb, _ := resized.At(x, y).RGBA()
 			br, bg, bb, _ := resized.At(x, y+1).RGBA()
 			// RGBA returns 16-bit values; shift to 8-bit
