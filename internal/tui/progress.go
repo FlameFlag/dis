@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/harmonica"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // ErrUserCancelled is returned when the user presses Ctrl+C during progress.
@@ -84,10 +82,7 @@ func tickCmd() tea.Cmd {
 }
 
 func (m progressModel) Init() tea.Cmd {
-	if m.mode == ProgressModeBar {
-		return tea.Batch(m.waitForUpdates(), tickCmd())
-	}
-	return m.waitForUpdates()
+	return tea.Batch(m.waitForUpdates(), tickCmd())
 }
 
 func (m progressModel) waitForUpdates() tea.Cmd {
@@ -154,58 +149,10 @@ func (m progressModel) View() string {
 	if m.done {
 		return ""
 	}
-
-	termW := m.width
-	if termW < 40 {
-		termW = defaultTermWidth
-	}
-
-	if m.mode == ProgressModeSparkline {
-		return m.viewSparkline(termW)
-	}
-	return m.viewBar(termW)
+	return m.viewBar()
 }
 
-func (m progressModel) viewSparkline(termW int) string {
-	// Line 1: message
-	line1 := " " + progressMsgStyle.Render(m.message)
-
-	// Line 2: sparkline + byte counts (or percentage when bytes unknown)
-	var bytesStr string
-	if m.info.Total > 0 {
-		bytesStr = fmt.Sprintf("%s / %s", formatBytes(m.info.Downloaded), formatBytes(m.info.Total))
-	} else if m.info.Percent > 0 {
-		bytesStr = fmt.Sprintf("%.0f%%", m.info.Percent)
-	} else {
-		bytesStr = "…"
-	}
-	statsWidth := lipgloss.Width(bytesStr) + 2                    // gap
-	sparkW := min(max(termW-1-statsWidth, 10), maxSparklineWidth) // 1 for left pad
-	spark := m.renderSparkline(sparkW)
-	line2 := " " + spark + "  " + progressTealStyle.Render(bytesStr)
-
-	// Line 3: speed (left) + ETA (right)
-	var speedStr string
-	if m.info.Speed > 0 {
-		speedStr = "↓ " + formatSpeed(m.info.Speed)
-	} else {
-		speedStr = "↓ …"
-	}
-	etaStr := ""
-	if m.info.ETA > 0 {
-		etaStr = "ETA " + formatETAShort(m.info.ETA)
-	}
-
-	line3Left := " " + progressSpeedStyle.Render(speedStr)
-	line3Right := progressETAStyle.Render(etaStr)
-
-	gap := max(termW-lipgloss.Width(line3Left)-lipgloss.Width(line3Right), 1)
-	line3 := line3Left + strings.Repeat(" ", gap) + line3Right
-
-	return line1 + "\n" + line2 + "\n" + line3 + "\n"
-}
-
-func (m progressModel) viewBar(termW int) string {
+func (m progressModel) viewBar() string {
 	// Line 1: message
 	line1 := " " + progressMsgStyle.Render(m.message)
 
