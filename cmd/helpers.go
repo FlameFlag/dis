@@ -7,6 +7,7 @@ import (
 	"dis/internal/download"
 	"dis/internal/tui"
 	"dis/internal/util"
+	"errors"
 	"os"
 
 	"github.com/charmbracelet/log"
@@ -41,6 +42,34 @@ func convertDownloaded(ctx context.Context, s *config.Settings, result *download
 		return convert.ExportGIF(ctx, result.OutputPath, s, nil, result.UploadDate)
 	}
 	return convert.ConvertVideo(ctx, result.OutputPath, s, nil, result.UploadDate)
+}
+
+func downloadLinks(ctx context.Context, s *config.Settings, links []string, trim *config.TrimSettings, tempDirs *[]string) []*download.DownloadResult {
+	if len(links) == 0 {
+		return nil
+	}
+
+	log.Info("Starting download", "count", len(links))
+	var results []*download.DownloadResult
+
+	for _, link := range links {
+		if err := ctx.Err(); err != nil {
+			return results
+		}
+
+		result, err := downloadWithProgress(ctx, "Downloading...", link, s, trim)
+		if errors.Is(err, tui.ErrUserCancelled) {
+			return results
+		}
+		if err != nil {
+			log.Error("Failed to download video", "url", link, "err", err)
+			continue
+		}
+		*tempDirs = append(*tempDirs, result.TempDir)
+		log.Info("Downloaded video", "path", result.OutputPath)
+		results = append(results, result)
+	}
+	return results
 }
 
 // cleanupDirs removes all temporary directories in the slice.
