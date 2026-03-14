@@ -35,15 +35,11 @@ const (
 	// speedRingSize is the number of samples in the sparkline ring buffer.
 	speedRingSize = 64
 	// maxSparkLevel is the maximum index into spark/braille character arrays.
-	maxSparkLevel = 7
-	// maxSparklineWidth caps the sparkline width to avoid overly wide displays.
-	maxSparklineWidth = 64
-
+	maxSparkLevel    = 7
 	waveFrequency    = math.Pi / 5.0
 	waveCenter       = 3.5
 	waveAmplitude    = 3.5
 	defaultTermWidth = 80
-	binaryKilo       = 1024.0
 )
 
 type progressModel struct {

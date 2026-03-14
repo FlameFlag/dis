@@ -95,7 +95,7 @@ func openCache() (*cache.Store, bool) {
 // GetSegments returns SponsorBlock segments for a video, using a local cache.
 func GetSegments(ctx context.Context, videoID string) ([]Segment, error) {
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		store.DeleteExpired()
 		if data, ok := store.GetSponsorBlock(videoID); ok {
 			var segments []Segment
@@ -111,7 +111,7 @@ func GetSegments(ctx context.Context, videoID string) ([]Segment, error) {
 	}
 
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		if blob, err := json.Marshal(segments); err == nil {
 			store.SetSponsorBlock(videoID, blob)
 		}

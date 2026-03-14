@@ -39,7 +39,7 @@ func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 	for i := range width {
 		silence := m.isSilenceAt(float64(i) / float64(width) * m.duration)
 
-		// Handle positions — same vertical bar in both rows.
+		// Handle positions - same vertical bar in both rows.
 		if i == startIdx {
 			if m.adjustingStart {
 				top.WriteString(handleActiveStyle.Render("┃"))

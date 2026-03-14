@@ -37,7 +37,7 @@ var (
 // FFmpeg silencedetect to find pauses. Designed to run in a background goroutine.
 func DetectSilence(ctx context.Context, rawURL string) ([]SilenceInterval, error) {
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		store.DeleteExpired()
 		if data, ok := store.GetSilence(rawURL); ok {
 			var intervals []SilenceInterval
@@ -54,7 +54,7 @@ func DetectSilence(ctx context.Context, rawURL string) ([]SilenceInterval, error
 	}
 
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		if blob, err := json.Marshal(intervals); err == nil {
 			store.SetSilence(rawURL, blob)
 		}

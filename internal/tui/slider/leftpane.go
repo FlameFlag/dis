@@ -25,7 +25,7 @@ func (m Model) renderLeftPane(width int) string {
 	lines = append(lines, " "+labels)
 	lines = append(lines, " "+ticks)
 
-	// Slider track (with integrated waveform) — two rows: peaks top, density bottom
+	// Slider track (with integrated waveform) - two rows: peaks top, density bottom
 	if m.isSelectMode() && m.hasWordSelection() {
 		top, bot := m.renderSliderWithSegments(w)
 		lines = append(lines, " "+top)

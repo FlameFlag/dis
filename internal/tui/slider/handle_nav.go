@@ -133,7 +133,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.GIFToggle):
 		if !m.gifAvailable {
-			m.warning = "gifski not found — install: brew install gifski"
+			m.warning = "gifski not found - install: brew install gifski"
 			m.warningExpiry = time.Now().Add(2 * time.Second)
 		} else {
 			m.gifMode = !m.gifMode

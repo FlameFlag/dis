@@ -76,7 +76,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 		onProgress(tui.ProgressInfo{Percent: p})
 	}
 
-	// Drain stdout (yt-dlp prints [download], [info] etc. here — not much useful progress)
+	// Drain stdout (yt-dlp prints [download], [info] etc. here - not much useful progress)
 	wg.Go(func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {

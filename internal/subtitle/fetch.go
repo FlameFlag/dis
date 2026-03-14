@@ -33,7 +33,7 @@ func FetchFromMetadata(ctx context.Context, info *ytdlp.ExtractedInfo) (Transcri
 	videoID := info.ID
 	if videoID != "" {
 		if store, ok := openCache(); ok {
-			defer store.Close()
+			defer func() { _ = store.Close() }()
 			store.DeleteExpired()
 			if data, ok := store.GetTranscript(videoID); ok {
 				var transcript Transcript
@@ -52,7 +52,7 @@ func FetchFromMetadata(ctx context.Context, info *ytdlp.ExtractedInfo) (Transcri
 
 	if videoID != "" && transcript != nil {
 		if store, ok := openCache(); ok {
-			defer store.Close()
+			defer func() { _ = store.Close() }()
 			if blob, err := json.Marshal(transcript); err == nil {
 				store.SetTranscript(videoID, blob)
 			}

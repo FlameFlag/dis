@@ -28,8 +28,11 @@ var rootCmd = &cobra.Command{
 	Use:   "dis [flags] <input>...",
 	Short: "Video downloader and compressor",
 	Long:  "Download and compress videos from URLs or local files using yt-dlp and FFmpeg.",
-	Args:  cobra.MinimumNArgs(1),
 	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			_ = cmd.Help()
+			os.Exit(0)
+		}
 		settings.Input = args
 
 		cfg, err := config.LoadConfig()
@@ -164,7 +167,7 @@ func run(ctx context.Context, s *config.Settings) error {
 
 	if s.GIF {
 		if _, err := exec.LookPath("gifski"); err != nil {
-			return fmt.Errorf("gifski not found — install it: brew install gifski (macOS) or cargo install gifski")
+			return fmt.Errorf("gifski not found - install it: brew install gifski (macOS) or cargo install gifski")
 		}
 	}
 

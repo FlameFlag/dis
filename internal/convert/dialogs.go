@@ -124,9 +124,9 @@ const GIFSpeedGoBack = -1.0
 
 // PromptGIFSpeed asks the user to pick a playback speed for the GIF.
 func PromptGIFSpeed(duration float64) (float64, error) {
-	desc := fmt.Sprintf("GIF is %.0fs — speeding up reduces file size", duration)
+	desc := fmt.Sprintf("GIF is %.0fs - speeding up reduces file size", duration)
 	if duration >= 6 {
-		desc = fmt.Sprintf("GIF is %.0fs — long GIFs produce large files, speeding up helps", duration)
+		desc = fmt.Sprintf("GIF is %.0fs - long GIFs produce large files, speeding up helps", duration)
 	}
 
 	opts := []huh.Option[float64]{

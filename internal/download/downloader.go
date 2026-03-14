@@ -28,7 +28,7 @@ func openCache() (*cache.Store, bool) {
 // FetchMetadata fetches full yt-dlp metadata for a URL (skip-download + print-json).
 func FetchMetadata(ctx context.Context, rawURL string) (*ytdlp.ExtractedInfo, error) {
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		store.DeleteExpired()
 		if data, ok := store.GetMetadata(rawURL); ok {
 			var info ytdlp.ExtractedInfo
@@ -45,7 +45,7 @@ func FetchMetadata(ctx context.Context, rawURL string) (*ytdlp.ExtractedInfo, er
 	}
 
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		if blob, err := json.Marshal(info); err == nil {
 			store.SetMetadata(rawURL, blob)
 		}

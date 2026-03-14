@@ -16,6 +16,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	ytdlp "github.com/lrstanley/go-ytdlp"
+	"golang.org/x/sync/errgroup"
 )
 
 func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, localFiles []string) ([]config.TrimSettings, error) {
@@ -61,7 +62,7 @@ func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, 
 		if segments != nil {
 			return segments, nil
 		}
-		// nil segments means go-back — re-run slider
+		// nil segments means go-back - re-run slider
 		s.GIFSpeed = 0
 	}
 }
@@ -173,15 +174,93 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 		}
 	}
 
-	return &sliderData{
+	transcriptCh := make(chan subtitle.Transcript, 1)
+	sbSegmentsCh := make(chan []sponsorblock.Segment, 1)
+
+	d := &sliderData{
 		duration:     duration,
 		markers:      markers,
-		transcriptCh: startTranscriptFetch(ctx, info, links),
-		silenceCh:    startSilenceDetection(ctx, links),
-		waveformCh:   startWaveformExtraction(ctx, links),
-		sbCh:         startStoryboardFetch(ctx, info),
-		sbSegmentsCh: startSponsorBlockFetch(ctx, links),
+		transcriptCh: transcriptCh,
+		sbSegmentsCh: sbSegmentsCh,
 	}
+
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		defer close(transcriptCh)
+		if info == nil || len(links) == 0 || sponsorblock.ExtractVideoID(links[0]) == "" {
+			return nil
+		}
+		t, err := subtitle.FetchFromMetadata(gctx, info)
+		if err != nil {
+			log.Debug("Failed to fetch subtitles", "err", err)
+			return nil
+		}
+		if len(t) > 0 {
+			transcriptCh <- t
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		defer close(sbSegmentsCh)
+		if len(links) == 0 {
+			return nil
+		}
+		videoID := sponsorblock.ExtractVideoID(links[0])
+		if videoID == "" {
+			return nil
+		}
+		segs, err := sponsorblock.GetSegments(gctx, videoID)
+		if err != nil {
+			log.Debug("SponsorBlock fetch failed", "err", err)
+			return nil
+		}
+		if len(segs) > 0 {
+			sbSegmentsCh <- segs
+		}
+		return nil
+	})
+
+	if len(links) > 0 {
+		silCh := make(chan []subtitle.SilenceInterval, 1)
+		d.silenceCh = silCh
+		g.Go(func() error {
+			defer close(silCh)
+			sil, err := subtitle.DetectSilence(gctx, links[0])
+			if err != nil {
+				log.Debug("Silence detection failed", "err", err)
+				return nil
+			}
+			if len(sil) > 0 {
+				silCh <- sil
+			}
+			return nil
+		})
+
+		wavCh := make(chan []subtitle.WaveformSample, 1)
+		d.waveformCh = wavCh
+		g.Go(func() error {
+			defer close(wavCh)
+			samples, err := subtitle.ExtractWaveform(gctx, links[0], 200)
+			if err != nil {
+				log.Debug("Waveform extraction failed", "err", err)
+				return nil
+			}
+			if len(samples) > 0 {
+				wavCh <- samples
+			}
+			return nil
+		})
+	}
+
+	if info != nil {
+		d.sbCh = storyboard.StartFetch(ctx, info)
+	}
+
+	go func() { _ = g.Wait() }()
+
+	return d
 }
 
 func runSlider(data *sliderData, gifEnabled bool) (*slider.TrimResult, error) {
@@ -213,93 +292,3 @@ func probeDuration(ctx context.Context, links, localFiles []string) (float64, *y
 
 	return 0, nil
 }
-
-func startTranscriptFetch(ctx context.Context, info *ytdlp.ExtractedInfo, links []string) <-chan subtitle.Transcript {
-	ch := make(chan subtitle.Transcript, 1)
-	go func() {
-		defer close(ch)
-		if info == nil || len(links) == 0 || sponsorblock.ExtractVideoID(links[0]) == "" {
-			return
-		}
-		t, err := subtitle.FetchFromMetadata(ctx, info)
-		if err != nil {
-			log.Debug("Failed to fetch subtitles", "err", err)
-			return
-		}
-		if len(t) > 0 {
-			ch <- t
-		}
-	}()
-	return ch
-}
-
-func startSponsorBlockFetch(ctx context.Context, links []string) <-chan []sponsorblock.Segment {
-	ch := make(chan []sponsorblock.Segment, 1)
-	go func() {
-		defer close(ch)
-		if len(links) == 0 {
-			return
-		}
-		videoID := sponsorblock.ExtractVideoID(links[0])
-		if videoID == "" {
-			return
-		}
-		segs, err := sponsorblock.GetSegments(ctx, videoID)
-		if err != nil {
-			log.Debug("SponsorBlock fetch failed", "err", err)
-			return
-		}
-		if len(segs) > 0 {
-			ch <- segs
-		}
-	}()
-	return ch
-}
-
-func startSilenceDetection(ctx context.Context, links []string) <-chan []subtitle.SilenceInterval {
-	if len(links) == 0 {
-		return nil
-	}
-
-	ch := make(chan []subtitle.SilenceInterval, 1)
-	go func() {
-		defer close(ch)
-		sil, err := subtitle.DetectSilence(ctx, links[0])
-		if err != nil {
-			log.Debug("Silence detection failed", "err", err)
-			return
-		}
-		if len(sil) > 0 {
-			ch <- sil
-		}
-	}()
-	return ch
-}
-
-func startWaveformExtraction(ctx context.Context, links []string) <-chan []subtitle.WaveformSample {
-	if len(links) == 0 {
-		return nil
-	}
-
-	ch := make(chan []subtitle.WaveformSample, 1)
-	go func() {
-		defer close(ch)
-		samples, err := subtitle.ExtractWaveform(ctx, links[0], 200)
-		if err != nil {
-			log.Debug("Waveform extraction failed", "err", err)
-			return
-		}
-		if len(samples) > 0 {
-			ch <- samples
-		}
-	}()
-	return ch
-}
-
-func startStoryboardFetch(ctx context.Context, info *ytdlp.ExtractedInfo) <-chan *storyboard.StoryboardData {
-	if info == nil {
-		return nil
-	}
-	return storyboard.StartFetch(ctx, info)
-}
-

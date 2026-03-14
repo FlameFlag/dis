@@ -23,7 +23,7 @@ type WaveformSample struct {
 // numSamples is the desired number of output samples (typically terminal width).
 func ExtractWaveform(ctx context.Context, rawURL string, numSamples int) ([]WaveformSample, error) {
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		store.DeleteExpired()
 		if data, ok := store.GetWaveform(rawURL, numSamples); ok {
 			var samples []WaveformSample
@@ -40,7 +40,7 @@ func ExtractWaveform(ctx context.Context, rawURL string, numSamples int) ([]Wave
 	}
 
 	if store, ok := openCache(); ok {
-		defer store.Close()
+		defer func() { _ = store.Close() }()
 		if blob, err := json.Marshal(samples); err == nil {
 			store.SetWaveform(rawURL, numSamples, blob)
 		}

@@ -96,7 +96,7 @@ func ProbeMedia(ctx context.Context, path string) (*MediaInfo, error) {
 		}
 	}
 
-	// Cross-check format duration against video stream duration — use the shorter one.
+	// Cross-check format duration against video stream duration - use the shorter one.
 	// Trimmed downloads often have incorrect container-level duration metadata.
 	for _, s := range probe.Streams {
 		if s.CodecType == codecTypeVideo && s.Duration != "" {

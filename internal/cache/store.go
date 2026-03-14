@@ -10,8 +10,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var migrateOnce sync.Once
-var expireOnce sync.Once
+var (
+	migrateOnce sync.Once
+	expireOnce  sync.Once
+)
 
 // Store is a typed cache backed by GORM + SQLite.
 type Store struct{ db *gorm.DB }
