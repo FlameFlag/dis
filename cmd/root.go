@@ -84,6 +84,8 @@ func init() {
 	f.IntVar(&settings.GIFLossyQuality, "gif-lossy-quality", 80, "GIF lossy compression quality (1-100, lower = smaller but grainier)")
 	f.IntVar(&settings.GIFMotionQuality, "gif-motion-quality", 80, "GIF motion quality (1-100, lower = smaller but smears motion)")
 	f.Float64Var(&settings.GIFSpeed, "gif-speed", 1.0, "GIF playback speed multiplier (e.g. 1.5, 2.0)")
+	f.Float64Var(&settings.Speed, "speed", 1.0, "Playback speed multiplier (e.g. 1.5, 2.0)")
+	rootCmd.MarkFlagsMutuallyExclusive("speed", "gif-speed")
 	rootCmd.MarkFlagsMutuallyExclusive("chapter", "trim")
 	rootCmd.MarkFlagsMutuallyExclusive("crf", "target-size")
 	rootCmd.MarkFlagsMutuallyExclusive("gif", "video-codec")
@@ -139,6 +141,7 @@ func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 		validate.VideoCodec(s.VideoCodec),
 		validate.TargetSize(s.TargetSize),
 		validate.Preset(s.Preset, cfg.Presets),
+		validate.Speed(s.Speed),
 	)
 	if s.GIF {
 		errs = errors.Join(errs,
@@ -276,7 +279,11 @@ func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, 
 			return nil, tui.ErrUserCancelled
 		}
 		s.GIF = result.GIF
-		s.GIFSpeed = result.Speed
+		if result.GIF {
+			s.GIFSpeed = result.Speed
+		} else {
+			s.Speed = result.Speed
+		}
 
 		segments, err := promptGIFSpeedIfNeeded(s, result.Segments, ctx, localFiles)
 		if err != nil {

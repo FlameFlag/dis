@@ -29,4 +29,5 @@ type Settings struct {
 	GIFLossyQuality  int
 	GIFMotionQuality int
 	GIFSpeed         float64
+	Speed            float64
 }

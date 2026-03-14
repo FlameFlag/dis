@@ -47,6 +47,9 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 		if trimSettings != nil {
 			duration = trimSettings.Duration
 		}
+		if s.Speed > 1.0 {
+			duration /= s.Speed
+		}
 
 		log.Info("Starting conversion...", "input", filepath.Base(inputPath))
 

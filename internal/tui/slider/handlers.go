@@ -164,18 +164,13 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.SpeedToggle):
-		if !m.gifMode {
-			m.warning = "speed only applies in GIF mode — press g first"
-			m.warningExpiry = time.Now().Add(2 * time.Second)
-		} else {
-			switch m.speedMultiplier {
-			case 1.0:
-				m.speedMultiplier = 1.5
-			case 1.5:
-				m.speedMultiplier = 2.0
-			default:
-				m.speedMultiplier = 1.0
-			}
+		switch m.speedMultiplier {
+		case 1.0:
+			m.speedMultiplier = 1.5
+		case 1.5:
+			m.speedMultiplier = 2.0
+		default:
+			m.speedMultiplier = 1.0
 		}
 		return m, nil
 

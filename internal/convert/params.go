@@ -61,9 +61,25 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 		}
 	}
 
-	// Resolution scaling
+	// Video filter chain (resolution + speed)
+	var vFilters []string
+	if s.Speed > 1.0 {
+		vFilters = append(vFilters, fmt.Sprintf("setpts=PTS/%.4g", s.Speed))
+	}
 	if s.Resolution != "" && info.HasVideo {
-		args = append(args, resolutionArgs(s.Resolution, info.Width, info.Height)...)
+		cleaned := strings.TrimSuffix(strings.ToLower(s.Resolution), "p")
+		resInt, err := strconv.Atoi(cleaned)
+		if err == nil {
+			aspectRatio := float64(info.Width) / float64(info.Height)
+			outWidth := int(math.Round(float64(resInt) * aspectRatio))
+			outHeight := resInt
+			outWidth -= outWidth % 2
+			outHeight -= outHeight % 2
+			vFilters = append(vFilters, fmt.Sprintf("scale=%d:%d", outWidth, outHeight))
+		}
+	}
+	if len(vFilters) > 0 {
+		args = append(args, "-vf", strings.Join(vFilters, ","))
 	}
 
 	// Audio codec
@@ -71,6 +87,9 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 		args = append(args, "-c:a", codec.AudioCodecName())
 		if s.AudioBitrate > 0 {
 			args = append(args, "-b:a", fmt.Sprintf("%dk", s.AudioBitrate))
+		}
+		if s.Speed > 1.0 {
+			args = append(args, "-af", fmt.Sprintf("atempo=%.4g", s.Speed))
 		}
 	}
 

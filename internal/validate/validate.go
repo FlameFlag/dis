@@ -170,6 +170,14 @@ func GIFSpeed(speed float64) error {
 	return nil
 }
 
+// Speed checks that the video speed multiplier is within valid range.
+func Speed(speed float64) error {
+	if speed < 1.0 || speed > 4.0 {
+		return fmt.Errorf("speed must be between 1.0 and 4.0 (got %.1f)", speed)
+	}
+	return nil
+}
+
 // VideoCodec checks whether the given codec string is known.
 func VideoCodec(codec string) error {
 	if codec == "" {

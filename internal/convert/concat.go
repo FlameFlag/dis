@@ -30,6 +30,9 @@ func ConcatSegments(ctx context.Context, inputPath string, s *config.Settings, s
 	for _, seg := range segments {
 		totalDur += seg.Duration
 	}
+	if s.Speed > 1.0 {
+		totalDur /= s.Speed
+	}
 
 	log.Info("Concatenating segments...", "segments", len(segments), "input", inputPath)
 
@@ -79,10 +82,18 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 		end := seg.End()
 
 		if info.HasVideo {
-			fmt.Fprintf(&fc, "[0:v]trim=start=%g:end=%g,setpts=PTS-STARTPTS[v%d];", start, end, i)
+			vf := fmt.Sprintf("[0:v]trim=start=%g:end=%g,setpts=PTS-STARTPTS", start, end)
+			if s.Speed > 1.0 {
+				vf += fmt.Sprintf(",setpts=PTS/%.4g", s.Speed)
+			}
+			fmt.Fprintf(&fc, "%s[v%d];", vf, i)
 		}
 		if info.HasAudio {
-			fmt.Fprintf(&fc, "[0:a]atrim=start=%g:end=%g,asetpts=PTS-STARTPTS[a%d];", start, end, i)
+			af := fmt.Sprintf("[0:a]atrim=start=%g:end=%g,asetpts=PTS-STARTPTS", start, end)
+			if s.Speed > 1.0 {
+				af += fmt.Sprintf(",atempo=%.4g", s.Speed)
+			}
+			fmt.Fprintf(&fc, "%s[a%d];", af, i)
 		}
 
 		if info.HasVideo {

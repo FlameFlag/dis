@@ -365,7 +365,11 @@ func (m Model) renderFormatBadge() string {
 		}
 		return badge
 	}
-	return faintStyle.Render("MP4")
+	badge := faintStyle.Render("MP4")
+	if m.speedMultiplier > 1.0 {
+		badge += " " + accentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
+	}
+	return badge
 }
 
 func (m Model) renderSplitsPanelLines(width int) []string {
