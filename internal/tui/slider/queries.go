@@ -21,7 +21,7 @@ func (m Model) sliderWidth() int {
 }
 
 func (m Model) isTwoPane() bool {
-	return m.width >= MinTwoPaneWidth && (m.transcript != nil || len(m.waveform) > 0)
+	return m.width >= MinTwoPaneWidth && m.transcript != nil
 }
 
 func (m Model) leftPaneWidth() int {

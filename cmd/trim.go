@@ -163,16 +163,31 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 		return nil
 	}
 
-	markers, transcript := extractSliderData(ctx, info, links)
+	// Start async work before synchronous fetches so they overlap
+	silenceCh := startSilenceDetection(ctx, links)
+	waveformCh := startWaveformExtraction(ctx, links)
+	sbCh := startStoryboardFetch(ctx, info)
+
+	// Synchronous fetches (transcript + SponsorBlock) — show spinner
+	type syncResult struct {
+		markers    []slider.ChapterMarker
+		transcript subtitle.Transcript
+		sbSegments []sponsorblock.Segment
+	}
+	sr, _ := tui.RunWithSpinnerResult(ctx, "Loading details...", func() (*syncResult, error) {
+		markers, transcript := extractSliderData(ctx, info, links)
+		sbSegments := fetchSponsorSegments(ctx, links)
+		return &syncResult{markers: markers, transcript: transcript, sbSegments: sbSegments}, nil
+	})
 
 	return &sliderData{
 		duration:   duration,
-		markers:    markers,
-		transcript: transcript,
-		silenceCh:  startSilenceDetection(ctx, links),
-		waveformCh: startWaveformExtraction(ctx, links),
-		sbCh:       startStoryboardFetch(ctx, info),
-		sbSegments: fetchSponsorSegments(ctx, links),
+		markers:    sr.markers,
+		transcript: sr.transcript,
+		silenceCh:  silenceCh,
+		waveformCh: waveformCh,
+		sbCh:       sbCh,
+		sbSegments: sr.sbSegments,
 	}
 }
 

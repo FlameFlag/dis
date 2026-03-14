@@ -9,9 +9,6 @@ func (m Model) renderRightPane(width int) string {
 	if m.transcript != nil {
 		return m.renderTranscriptPanel(width)
 	}
-	if len(m.waveform) > 0 {
-		return m.renderVerticalWaveform(width)
-	}
 	return ""
 }
 

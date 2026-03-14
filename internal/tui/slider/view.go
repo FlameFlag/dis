@@ -108,8 +108,5 @@ func (m Model) rightPaneTitle() string {
 		selCount := m.selectedWordCount()
 		return fmt.Sprintf(" Select Words %d/%d ", selCount, len(m.words))
 	}
-	if m.transcript != nil {
-		return " Transcript "
-	}
-	return " Audio "
+	return " Transcript "
 }
