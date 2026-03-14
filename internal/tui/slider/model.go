@@ -54,9 +54,10 @@ type Model struct {
 	// Loading spinner
 	loadingFrame int
 
-	// Transcript support
-	transcript subtitle.Transcript // nil if unavailable
-	words      []subtitle.Word     // flattened word list
+	// Transcript support (async)
+	transcript   subtitle.Transcript // nil until received
+	transcriptCh <-chan subtitle.Transcript
+	words        []subtitle.Word // flattened word list
 
 	// Select mode (word-level selection)
 	cursor                int    // word cursor index
@@ -81,8 +82,9 @@ type Model struct {
 	storyboard   *storyboard.StoryboardData
 	storyboardCh <-chan *storyboard.StoryboardData
 
-	// SponsorBlock segments
+	// SponsorBlock segments (async)
 	sponsorSegments []sponsorblock.Segment
+	sponsorSegsCh   <-chan []sponsorblock.Segment
 
 	// Transcript viewport
 	viewportLocked   bool // auto-follow mode (default true)
@@ -131,6 +133,16 @@ type StoryboardReadyMsg struct {
 	Data *storyboard.StoryboardData
 }
 
+// TranscriptReadyMsg is sent when background transcript fetch completes.
+type TranscriptReadyMsg struct {
+	Transcript subtitle.Transcript
+}
+
+// SponsorSegsReadyMsg is sent when background SponsorBlock fetch completes.
+type SponsorSegsReadyMsg struct {
+	Segments []sponsorblock.Segment
+}
+
 type animTickMsg struct{}
 
 func animTick() tea.Cmd {
@@ -150,7 +162,8 @@ func loadingTick() tea.Cmd {
 }
 
 func (m Model) isLoading() bool {
-	return m.silenceCh != nil || m.waveformCh != nil || m.storyboardCh != nil
+	return m.silenceCh != nil || m.waveformCh != nil || m.storyboardCh != nil ||
+		m.transcriptCh != nil || m.sponsorSegsCh != nil
 }
 
 func (m *Model) triggerAnim() tea.Cmd {
@@ -162,19 +175,19 @@ func (m *Model) triggerAnim() tea.Cmd {
 }
 
 // New creates a new trim slider model.
-func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegs []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
+func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
 	_, gifErr := exec.LookPath("gifski")
-	m := Model{
+	return Model{
 		duration:        duration,
 		startPos:        0,
 		endPos:          duration,
 		adjustingStart:  true,
 		chapters:        chapters,
-		transcript:      transcript,
+		transcriptCh:    transcriptCh,
 		silenceCh:       silenceCh,
 		waveformCh:      waveformCh,
 		storyboardCh:    storyboardCh,
-		sponsorSegments: sponsorSegs,
+		sponsorSegsCh:   sponsorSegsCh,
 		viewportLocked:  true,
 		selectAnchor:    -1,
 		gifMode:         gifEnabled,
@@ -184,11 +197,6 @@ func New(duration float64, transcript subtitle.Transcript, silenceCh <-chan []su
 		animStartPos:    0,
 		animEndPos:      duration,
 	}
-	if len(transcript) > 0 {
-		m.words = transcript.Words()
-		m.selected = make([]bool, len(m.words))
-	}
-	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -227,6 +235,28 @@ func (m Model) Init() tea.Cmd {
 		})
 	}
 
+	if m.transcriptCh != nil {
+		ch := m.transcriptCh
+		cmds = append(cmds, func() tea.Msg {
+			t, ok := <-ch
+			if !ok {
+				return TranscriptReadyMsg{}
+			}
+			return TranscriptReadyMsg{Transcript: t}
+		})
+	}
+
+	if m.sponsorSegsCh != nil {
+		ch := m.sponsorSegsCh
+		cmds = append(cmds, func() tea.Msg {
+			segs, ok := <-ch
+			if !ok {
+				return SponsorSegsReadyMsg{}
+			}
+			return SponsorSegsReadyMsg{Segments: segs}
+		})
+	}
+
 	if m.isLoading() {
 		cmds = append(cmds, loadingTick())
 	}
@@ -251,6 +281,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StoryboardReadyMsg:
 		m.storyboard = msg.Data
 		m.storyboardCh = nil
+		return m, nil
+	case TranscriptReadyMsg:
+		m.transcript = msg.Transcript
+		m.transcriptCh = nil
+		if len(m.transcript) > 0 {
+			m.words = m.transcript.Words()
+			m.selected = make([]bool, len(m.words))
+		}
+		return m, nil
+	case SponsorSegsReadyMsg:
+		m.sponsorSegments = msg.Segments
+		m.sponsorSegsCh = nil
 		return m, nil
 	case loadingTickMsg:
 		if m.isLoading() {
@@ -334,8 +376,8 @@ func (m Model) Result() *TrimResult {
 }
 
 // Run launches the trim slider as a full-screen BubbleTea program.
-func Run(duration float64, transcript subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegs []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
-	m := New(duration, transcript, silenceCh, waveformCh, storyboardCh, sponsorSegs, gifEnabled, chapters...)
+func Run(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, waveformCh <-chan []subtitle.WaveformSample, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
+	m := New(duration, transcriptCh, silenceCh, waveformCh, storyboardCh, sponsorSegsCh, gifEnabled, chapters...)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()

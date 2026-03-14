@@ -148,13 +148,13 @@ func parseTrimRange(input string) (*config.TrimSettings, error) {
 
 // sliderData holds pre-fetched data needed to run the trim slider.
 type sliderData struct {
-	duration   float64
-	markers    []slider.ChapterMarker
-	transcript subtitle.Transcript
-	silenceCh  chan []subtitle.SilenceInterval
-	waveformCh chan []subtitle.WaveformSample
-	sbCh       <-chan *storyboard.StoryboardData
-	sbSegments []sponsorblock.Segment
+	duration     float64
+	markers      []slider.ChapterMarker
+	transcriptCh <-chan subtitle.Transcript
+	silenceCh    <-chan []subtitle.SilenceInterval
+	waveformCh   <-chan []subtitle.WaveformSample
+	sbCh         <-chan *storyboard.StoryboardData
+	sbSegmentsCh <-chan []sponsorblock.Segment
 }
 
 func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderData {
@@ -163,36 +163,29 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 		return nil
 	}
 
-	// Start async work before synchronous fetches so they overlap
-	silenceCh := startSilenceDetection(ctx, links)
-	waveformCh := startWaveformExtraction(ctx, links)
-	sbCh := startStoryboardFetch(ctx, info)
-
-	// Synchronous fetches (transcript + SponsorBlock) — show spinner
-	type syncResult struct {
-		markers    []slider.ChapterMarker
-		transcript subtitle.Transcript
-		sbSegments []sponsorblock.Segment
+	// Chapters are fast (parsed from already-loaded metadata)
+	var markers []slider.ChapterMarker
+	if info != nil {
+		chapters := download.ExtractChapters(info)
+		markers = make([]slider.ChapterMarker, 0, len(chapters))
+		for _, ch := range chapters {
+			markers = append(markers, slider.ChapterMarker{StartTime: ch.StartTime, Title: ch.Title})
+		}
 	}
-	sr, _ := tui.RunWithSpinnerResult(ctx, "Loading details...", func() (*syncResult, error) {
-		markers, transcript := extractSliderData(ctx, info, links)
-		sbSegments := fetchSponsorSegments(ctx, links)
-		return &syncResult{markers: markers, transcript: transcript, sbSegments: sbSegments}, nil
-	})
 
 	return &sliderData{
-		duration:   duration,
-		markers:    sr.markers,
-		transcript: sr.transcript,
-		silenceCh:  silenceCh,
-		waveformCh: waveformCh,
-		sbCh:       sbCh,
-		sbSegments: sr.sbSegments,
+		duration:     duration,
+		markers:      markers,
+		transcriptCh: startTranscriptFetch(ctx, info, links),
+		silenceCh:    startSilenceDetection(ctx, links),
+		waveformCh:   startWaveformExtraction(ctx, links),
+		sbCh:         startStoryboardFetch(ctx, info),
+		sbSegmentsCh: startSponsorBlockFetch(ctx, links),
 	}
 }
 
 func runSlider(data *sliderData, gifEnabled bool) (*slider.TrimResult, error) {
-	return slider.Run(data.duration, data.transcript, data.silenceCh, data.waveformCh, data.sbCh, data.sbSegments, gifEnabled, data.markers...)
+	return slider.Run(data.duration, data.transcriptCh, data.silenceCh, data.waveformCh, data.sbCh, data.sbSegmentsCh, gifEnabled, data.markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {
@@ -221,34 +214,49 @@ func probeDuration(ctx context.Context, links, localFiles []string) (float64, *y
 	return 0, nil
 }
 
-func extractSliderData(ctx context.Context, info *ytdlp.ExtractedInfo, links []string) ([]slider.ChapterMarker, subtitle.Transcript) {
-	if info == nil {
-		return nil, nil
-	}
-
-	chapters := download.ExtractChapters(info)
-	markers := make([]slider.ChapterMarker, 0, len(chapters))
-	for _, ch := range chapters {
-		markers = append(markers, slider.ChapterMarker{
-			StartTime: ch.StartTime,
-			Title:     ch.Title,
-		})
-	}
-
-	var transcript subtitle.Transcript
-	if len(links) > 0 && sponsorblock.ExtractVideoID(links[0]) != "" {
+func startTranscriptFetch(ctx context.Context, info *ytdlp.ExtractedInfo, links []string) <-chan subtitle.Transcript {
+	ch := make(chan subtitle.Transcript, 1)
+	go func() {
+		defer close(ch)
+		if info == nil || len(links) == 0 || sponsorblock.ExtractVideoID(links[0]) == "" {
+			return
+		}
 		t, err := subtitle.FetchFromMetadata(ctx, info)
 		if err != nil {
 			log.Debug("Failed to fetch subtitles", "err", err)
-		} else {
-			transcript = t
+			return
 		}
-	}
-
-	return markers, transcript
+		if len(t) > 0 {
+			ch <- t
+		}
+	}()
+	return ch
 }
 
-func startSilenceDetection(ctx context.Context, links []string) chan []subtitle.SilenceInterval {
+func startSponsorBlockFetch(ctx context.Context, links []string) <-chan []sponsorblock.Segment {
+	ch := make(chan []sponsorblock.Segment, 1)
+	go func() {
+		defer close(ch)
+		if len(links) == 0 {
+			return
+		}
+		videoID := sponsorblock.ExtractVideoID(links[0])
+		if videoID == "" {
+			return
+		}
+		segs, err := sponsorblock.GetSegments(ctx, videoID)
+		if err != nil {
+			log.Debug("SponsorBlock fetch failed", "err", err)
+			return
+		}
+		if len(segs) > 0 {
+			ch <- segs
+		}
+	}()
+	return ch
+}
+
+func startSilenceDetection(ctx context.Context, links []string) <-chan []subtitle.SilenceInterval {
 	if len(links) == 0 {
 		return nil
 	}
@@ -268,7 +276,7 @@ func startSilenceDetection(ctx context.Context, links []string) chan []subtitle.
 	return ch
 }
 
-func startWaveformExtraction(ctx context.Context, links []string) chan []subtitle.WaveformSample {
+func startWaveformExtraction(ctx context.Context, links []string) <-chan []subtitle.WaveformSample {
 	if len(links) == 0 {
 		return nil
 	}
@@ -295,20 +303,3 @@ func startStoryboardFetch(ctx context.Context, info *ytdlp.ExtractedInfo) <-chan
 	return storyboard.StartFetch(ctx, info)
 }
 
-func fetchSponsorSegments(ctx context.Context, links []string) []sponsorblock.Segment {
-	if len(links) == 0 {
-		return nil
-	}
-
-	videoID := sponsorblock.ExtractVideoID(links[0])
-	if videoID == "" {
-		return nil
-	}
-
-	segs, err := sponsorblock.GetSegments(ctx, videoID)
-	if err != nil {
-		log.Debug("SponsorBlock fetch failed", "err", err)
-		return nil
-	}
-	return segs
-}
