@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -84,7 +83,7 @@ func baseCommand(s *config.Settings, rawURL string) *ytdlp.Command {
 	dl.MergeOutputFormat("mp4")
 	dl.RemuxVideo("mp4")
 	dl.EmbedMetadata()
-	if s.Sponsor && isYouTube(rawURL) {
+	if s.Sponsor && util.IsYouTube(rawURL) {
 		dl.SponsorblockRemove("all")
 		log.Info("Removing sponsored segments using SponsorBlock")
 	}
@@ -196,7 +195,7 @@ func DownloadVideo(ctx context.Context, rawURL string, s *config.Settings, trimS
 	}
 
 	// For generic (non-YouTube) downloads, rename from ID to display_id if needed
-	if !isYouTube(rawURL) && info.DisplayID != nil && *info.DisplayID != info.ID {
+	if !util.IsYouTube(rawURL) && info.DisplayID != nil && *info.DisplayID != info.ID {
 		newPath, renameErr := renameToDisplayID(tempDir, outPath, *info.DisplayID)
 		if renameErr != nil {
 			log.Warn("Could not rename output file", "err", renameErr)
@@ -217,10 +216,6 @@ func derefOr[T comparable](p *T, fallback T) T {
 		return *p
 	}
 	return fallback
-}
-
-func isYouTube(rawURL string) bool {
-	return strings.Contains(rawURL, "youtu")
 }
 
 func renameToDisplayID(dir, currentPath, displayID string) (string, error) {

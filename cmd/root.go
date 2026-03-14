@@ -93,7 +93,7 @@ func init() {
 		return config.CodecNames(), cobra.ShellCompDirectiveNoFileComp
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc("resolution", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"144p", "240p", "360p", "480p", "720p", "1080p", "1440p", "2160p"}, cobra.ShellCompDirectiveNoFileComp
+		return config.ResolutionStrings(), cobra.ShellCompDirectiveNoFileComp
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc("preset", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return config.PresetNames(nil), cobra.ShellCompDirectiveNoFileComp
@@ -149,7 +149,7 @@ func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 			validate.GIFQuality(s.GIFQuality),
 			validate.GIFLossyQuality(s.GIFLossyQuality),
 			validate.GIFMotionQuality(s.GIFMotionQuality),
-			validate.GIFSpeed(s.GIFSpeed),
+			validate.Speed(s.GIFSpeed),
 		)
 	}
 	return errs

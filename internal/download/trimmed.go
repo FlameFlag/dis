@@ -5,18 +5,15 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
+	"dis/internal/util"
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/charmbracelet/log"
 )
-
-var ffmpegTimeRegex = regexp.MustCompile(`time=(\d{2}):(\d{2}):(\d{2})\.(\d+)`)
 
 // downloadTrimmedRaw runs yt-dlp as a raw process for trimmed downloads.
 // With --force-keyframes-at-cuts, yt-dlp feeds URLs directly to ffmpeg which
@@ -35,7 +32,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 		"--download-sections", trim.DownloadSection(),
 		"--force-keyframes-at-cuts",
 	}
-	if s.Sponsor && isYouTube(rawURL) {
+	if s.Sponsor && util.IsYouTube(rawURL) {
 		args = append(args, "--sponsorblock-remove", "all")
 	}
 	args = append(args, rawURL)
@@ -90,8 +87,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 	// Parse stderr for ffmpeg's time= progress
 	wg.Go(func() {
 		scanner := bufio.NewScanner(stderr)
-		// ffmpeg writes long lines with \r for in-place updates; split on both
-		scanner.Split(splitCRLF)
+		scanner.Split(util.ScanFFmpegLines)
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -101,12 +97,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 			mu.Unlock()
 
 			if trim.Duration > 0 {
-				if m := ffmpegTimeRegex.FindStringSubmatch(line); m != nil {
-					h, _ := strconv.ParseFloat(m[1], 64)
-					mins, _ := strconv.ParseFloat(m[2], 64)
-					sec, _ := strconv.ParseFloat(m[3], 64)
-					frac, _ := strconv.ParseFloat("0."+m[4], 64)
-					t := h*3600 + mins*60 + sec + frac
+				if t := util.ParseFFmpegTime(line); t > 0 {
 					pct := min(t/trim.Duration*100, 100)
 					emit(pct)
 				}
@@ -123,20 +114,4 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 		return fmt.Errorf("yt-dlp: %w: %s", err, errOutput)
 	}
 	return nil
-}
-
-// splitCRLF is a bufio.SplitFunc that splits on \n or \r (ffmpeg uses \r for progress).
-func splitCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	for i, b := range data {
-		if b == '\n' || b == '\r' {
-			return i + 1, data[:i], nil
-		}
-	}
-	if atEOF {
-		return len(data), data, nil
-	}
-	return 0, nil, nil
 }

@@ -1,11 +1,13 @@
 package convert
 
 import (
+	"cmp"
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
-	"dis/internal/util"
+	"dis/internal/validate"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -56,13 +58,7 @@ func ConcatSegments(ctx context.Context, inputPath string, s *config.Settings, s
 	compressedSize := fileSize(outputPath)
 	tui.PrintResultsTable(originalSize, compressedSize)
 
-	if s.Copy {
-		if err := util.CopyToClipboard(outputPath); err != nil {
-			log.Warn("Could not copy to clipboard", "err", err)
-		} else {
-			log.Info("Copied to clipboard", "path", outputPath)
-		}
-	}
+	copyAndLog(s, outputPath)
 
 	return nil
 }
@@ -140,7 +136,7 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 
 	// Video encoding settings
 	if info.HasVideo {
-		args = append(args, "-crf", fmt.Sprintf("%d", s.Crf))
+		args = append(args, "-crf", strconv.Itoa(s.Crf))
 
 		args = append(args, "-pix_fmt", codec.PixelFormat())
 		args = append(args, "-preset", "veryslow")
@@ -155,10 +151,7 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 				for _, seg := range segments {
 					totalDur += seg.Duration
 				}
-				audioBitrate := s.AudioBitrate
-				if audioBitrate == 0 {
-					audioBitrate = 128
-				}
+				audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
 				videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, totalDur, audioBitrate)
 				if videoBitrateKbps > 0 {
 					args = append(args, targetSizeArgs(videoBitrateKbps)...)

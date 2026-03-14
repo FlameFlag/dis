@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -40,7 +41,7 @@ const (
 	// maxSparklineWidth caps the sparkline width to avoid overly wide displays.
 	maxSparklineWidth = 64
 
-	waveFrequency    = 3.141592653589793 / 5.0
+	waveFrequency    = math.Pi / 5.0
 	waveCenter       = 3.5
 	waveAmplitude    = 3.5
 	defaultTermWidth = 80

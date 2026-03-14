@@ -37,12 +37,22 @@ func AllCategories() []Category {
 	}
 }
 
+// Action is a typed SponsorBlock action type.
+type Action string
+
+const (
+	ActionSkip Action = "skip"
+	ActionMute Action = "mute"
+	ActionPOI  Action = "poi"
+	ActionFull Action = "full"
+)
+
 // Segment represents a SponsorBlock segment.
 type Segment struct {
 	Start    float64
 	End      float64
 	Category Category
-	Action   string // "skip", "mute", "poi", "full"
+	Action   Action
 }
 
 const (
@@ -144,7 +154,7 @@ func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
 			Start:    s.Segment[0],
 			End:      s.Segment[1],
 			Category: s.Category,
-			Action:   s.ActionType,
+			Action:   Action(s.ActionType),
 		})
 	}
 	return segments, nil

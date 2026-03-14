@@ -15,22 +15,25 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
+// GraphicsProtocol represents a terminal graphics protocol.
+type GraphicsProtocol int
+
 const (
-	graphicsNone  = 0
-	graphicsKitty = 1
-	graphicsSixel = 2
+	GraphicsNone GraphicsProtocol = iota
+	GraphicsKitty
+	GraphicsSixel
 )
 
 var (
-	graphicsOnce     sync.Once
-	graphicsProtocol int
+	graphicsOnce             sync.Once
+	detectedGraphicsProtocol GraphicsProtocol
 )
 
-func detectGraphics() int {
+func detectGraphics() GraphicsProtocol {
 	// Zellij does not support kitty graphics protocol and its sixel
 	// implementation is broken since v0.40.0. Fall back to half-block.
 	if os.Getenv("ZELLIJ") != "" {
-		return graphicsNone
+		return GraphicsNone
 	}
 
 	term := os.Getenv("TERM")
@@ -41,7 +44,7 @@ func detectGraphics() int {
 		termProg == "WezTerm" ||
 		termProg == "kitty" ||
 		termProg == "ghostty" {
-		return graphicsKitty
+		return GraphicsKitty
 	}
 
 	// Sixel support: foot, xterm (with sixel build), mlterm, contour, etc.
@@ -49,28 +52,28 @@ func detectGraphics() int {
 		termProg == "mlterm" ||
 		termProg == "contour" ||
 		term == "xterm-256color" && termProg == "" {
-		return graphicsSixel
+		return GraphicsSixel
 	}
 
-	return graphicsNone
+	return GraphicsNone
 }
 
-// GraphicsProtocol returns the detected graphics protocol.
-func GraphicsProtocol() int {
+// DetectedProtocol returns the detected graphics protocol.
+func DetectedProtocol() GraphicsProtocol {
 	graphicsOnce.Do(func() {
-		graphicsProtocol = detectGraphics()
+		detectedGraphicsProtocol = detectGraphics()
 	})
-	return graphicsProtocol
+	return detectedGraphicsProtocol
 }
 
 // IsKittySupported returns true if the terminal supports the Kitty graphics protocol.
 func IsKittySupported() bool {
-	return GraphicsProtocol() == graphicsKitty
+	return DetectedProtocol() == GraphicsKitty
 }
 
 // IsSixelSupported returns true if the terminal likely supports Sixel graphics.
 func IsSixelSupported() bool {
-	return GraphicsProtocol() == graphicsSixel
+	return DetectedProtocol() == GraphicsSixel
 }
 
 // RenderKitty renders an image using the Kitty graphics protocol.

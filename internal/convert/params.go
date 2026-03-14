@@ -1,7 +1,9 @@
 package convert
 
 import (
+	"cmp"
 	"dis/internal/config"
+	"dis/internal/validate"
 	"fmt"
 	"math"
 	"runtime"
@@ -50,10 +52,7 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 			if trimSettings != nil {
 				duration = trimSettings.Duration
 			}
-			audioBitrate := s.AudioBitrate
-			if audioBitrate == 0 {
-				audioBitrate = 128
-			}
+			audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
 			videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, duration, audioBitrate)
 			if videoBitrateKbps > 0 {
 				args = append(args, targetSizeArgs(videoBitrateKbps)...)

@@ -68,7 +68,23 @@ const (
 
 	AudioBitrateMinRecommended = 128
 	AudioBitrateMaxRecommended = 192
+
+	DefaultAudioBitrate = 128
 )
+
+func intRange(name string, val, lo, hi int) error {
+	if val < lo || val > hi {
+		return fmt.Errorf("%s must be between %d and %d (got %d)", name, lo, hi, val)
+	}
+	return nil
+}
+
+func floatRange(name string, val, lo, hi float64) error {
+	if val < lo || val > hi {
+		return fmt.Errorf("%s must be between %.1f and %.1f (got %.1f)", name, lo, hi, val)
+	}
+	return nil
+}
 
 // Crf checks the CRF value is within valid range (6-63), warns if outside recommended (22-38).
 func Crf(crf int) error {
@@ -123,60 +139,22 @@ func Resolution(res string) error {
 }
 
 // GIFFps checks that the GIF frame rate is within valid range.
-func GIFFps(fps int) error {
-	if fps < 1 || fps > 50 {
-		return fmt.Errorf("GIF fps must be between 1 and 50 (got %d)", fps)
-	}
-	return nil
-}
+func GIFFps(fps int) error { return intRange("GIF fps", fps, 1, 50) }
 
 // GIFWidth checks that the GIF width is within valid range.
-func GIFWidth(width int) error {
-	if width < 1 || width > 3840 {
-		return fmt.Errorf("GIF width must be between 1 and 3840 (got %d)", width)
-	}
-	return nil
-}
+func GIFWidth(width int) error { return intRange("GIF width", width, 1, 3840) }
 
 // GIFQuality checks that the GIF quality is within valid range.
-func GIFQuality(quality int) error {
-	if quality < 1 || quality > 100 {
-		return fmt.Errorf("GIF quality must be between 1 and 100 (got %d)", quality)
-	}
-	return nil
-}
+func GIFQuality(quality int) error { return intRange("GIF quality", quality, 1, 100) }
 
 // GIFLossyQuality checks that the GIF lossy quality is within valid range.
-func GIFLossyQuality(quality int) error {
-	if quality < 1 || quality > 100 {
-		return fmt.Errorf("GIF lossy quality must be between 1 and 100 (got %d)", quality)
-	}
-	return nil
-}
+func GIFLossyQuality(quality int) error { return intRange("GIF lossy quality", quality, 1, 100) }
 
 // GIFMotionQuality checks that the GIF motion quality is within valid range.
-func GIFMotionQuality(quality int) error {
-	if quality < 1 || quality > 100 {
-		return fmt.Errorf("GIF motion quality must be between 1 and 100 (got %d)", quality)
-	}
-	return nil
-}
+func GIFMotionQuality(quality int) error { return intRange("GIF motion quality", quality, 1, 100) }
 
-// GIFSpeed checks that the GIF speed multiplier is within valid range.
-func GIFSpeed(speed float64) error {
-	if speed < 1.0 || speed > 4.0 {
-		return fmt.Errorf("GIF speed must be between 1.0 and 4.0 (got %.1f)", speed)
-	}
-	return nil
-}
-
-// Speed checks that the video speed multiplier is within valid range.
-func Speed(speed float64) error {
-	if speed < 1.0 || speed > 4.0 {
-		return fmt.Errorf("speed must be between 1.0 and 4.0 (got %.1f)", speed)
-	}
-	return nil
-}
+// Speed checks that the speed multiplier is within valid range.
+func Speed(speed float64) error { return floatRange("speed", speed, 1.0, 4.0) }
 
 // VideoCodec checks whether the given codec string is known.
 func VideoCodec(codec string) error {

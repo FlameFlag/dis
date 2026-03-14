@@ -4,11 +4,11 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
-	"dis/internal/util"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/charmbracelet/log"
 )
@@ -56,11 +56,11 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	outputPath := ConstructOutputPathWithExt(inputPath, s, ".gif")
 
 	gifskiArgs := []string{
-		"--fps", fmt.Sprintf("%d", s.GIFFps),
-		"--quality", fmt.Sprintf("%d", s.GIFQuality),
-		"--lossy-quality", fmt.Sprintf("%d", s.GIFLossyQuality),
-		"--motion-quality", fmt.Sprintf("%d", s.GIFMotionQuality),
-		"--width", fmt.Sprintf("%d", s.GIFWidth),
+		"--fps", strconv.Itoa(s.GIFFps),
+		"--quality", strconv.Itoa(s.GIFQuality),
+		"--lossy-quality", strconv.Itoa(s.GIFLossyQuality),
+		"--motion-quality", strconv.Itoa(s.GIFMotionQuality),
+		"--width", strconv.Itoa(s.GIFWidth),
 		"--quiet",
 		"-o", outputPath,
 	}
@@ -81,13 +81,7 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	compressedSize := fileSize(outputPath)
 	tui.PrintResultsTable(originalSize, compressedSize)
 
-	if s.Copy {
-		if err := util.CopyToClipboard(outputPath); err != nil {
-			log.Warn("Could not copy to clipboard", "err", err)
-		} else {
-			log.Info("Copied to clipboard", "path", outputPath)
-		}
-	}
+	copyAndLog(s, outputPath)
 
 	log.Info("GIF saved", "path", outputPath)
 	return nil

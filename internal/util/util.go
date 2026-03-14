@@ -92,6 +92,11 @@ func NearestIndex[T any](items []T, target float64, key func(T) float64) int {
 	return best
 }
 
+// IsYouTube returns true if the URL appears to be a YouTube link.
+func IsYouTube(rawURL string) bool {
+	return strings.Contains(rawURL, "youtu")
+}
+
 // ShortGUID returns a short random hex string (4 chars).
 func ShortGUID() string {
 	return fmt.Sprintf("%04x", rand.N(0x10000))

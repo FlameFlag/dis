@@ -3,6 +3,7 @@ package config
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -78,6 +79,15 @@ func CodecNames() []string {
 	}
 	slices.Sort(names)
 	return names
+}
+
+// ResolutionStrings returns ValidResolutions as "Np" strings (e.g. "720p").
+func ResolutionStrings() []string {
+	s := make([]string, len(ValidResolutions))
+	for i, r := range ValidResolutions {
+		s[i] = strconv.Itoa(r) + "p"
+	}
+	return s
 }
 
 func (c Codec) cfg() codecConfig {
