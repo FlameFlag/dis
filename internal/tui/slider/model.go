@@ -51,6 +51,9 @@ type Model struct {
 	width          int
 	chapters       []ChapterMarker
 
+	// Loading spinner
+	loadingFrame int
+
 	// Transcript support
 	transcript subtitle.Transcript // nil if unavailable
 	words      []subtitle.Word     // flattened word list
@@ -136,6 +139,20 @@ func animTick() tea.Cmd {
 	})
 }
 
+type loadingTickMsg struct{}
+
+var loadingSpinner = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+
+func loadingTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return loadingTickMsg{}
+	})
+}
+
+func (m Model) isLoading() bool {
+	return m.silenceCh != nil || m.waveformCh != nil || m.storyboardCh != nil
+}
+
 func (m *Model) triggerAnim() tea.Cmd {
 	if !m.animating {
 		m.animating = true
@@ -210,6 +227,10 @@ func (m Model) Init() tea.Cmd {
 		})
 	}
 
+	if m.isLoading() {
+		cmds = append(cmds, loadingTick())
+	}
+
 	return tea.Batch(cmds...)
 }
 
@@ -221,12 +242,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case SilenceDetectedMsg:
 		m.silenceIntervals = msg.Intervals
+		m.silenceCh = nil
 		return m, nil
 	case WaveformReadyMsg:
 		m.waveform = msg.Samples
+		m.waveformCh = nil
 		return m, nil
 	case StoryboardReadyMsg:
 		m.storyboard = msg.Data
+		m.storyboardCh = nil
+		return m, nil
+	case loadingTickMsg:
+		if m.isLoading() {
+			m.loadingFrame = (m.loadingFrame + 1) % len(loadingSpinner)
+			return m, loadingTick()
+		}
 		return m, nil
 	case animTickMsg:
 		if m.warning != "" && time.Now().After(m.warningExpiry) {

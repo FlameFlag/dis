@@ -32,7 +32,7 @@ func (m Model) renderLeftPane(width int) string {
 	// Header: "✂ Trim" ... right-aligned M:SS
 	header := boldStyle.Render("✂ Trim")
 	durStr := faintStyle.Render(util.FormatDurationShort(m.duration))
-	pad := max(width-lipgloss.Width(header)-lipgloss.Width(durStr), 1)
+	pad := max(width-1-lipgloss.Width(header)-lipgloss.Width(durStr), 1)
 	lines = append(lines, " "+header+strings.Repeat(" ", pad)+durStr)
 
 	// Blank line
@@ -43,11 +43,15 @@ func (m Model) renderLeftPane(width int) string {
 	lines = append(lines, " "+labels)
 	lines = append(lines, " "+ticks)
 
-	// Slider track (with integrated waveform)
+	// Slider track (with integrated waveform) — two rows: peaks top, density bottom
 	if m.isSelectMode() && m.hasWordSelection() {
-		lines = append(lines, " "+m.renderSliderWithSegments(w))
+		top, bot := m.renderSliderWithSegments(w)
+		lines = append(lines, " "+top)
+		lines = append(lines, " "+bot)
 	} else {
-		lines = append(lines, " "+m.renderIntegratedSlider(w))
+		top, bot := m.renderIntegratedSlider(w)
+		lines = append(lines, " "+top)
+		lines = append(lines, " "+bot)
 	}
 
 	// SponsorBlock segments row (no legend)
@@ -72,6 +76,11 @@ func (m Model) renderLeftPane(width int) string {
 		lines = append(lines, m.renderInlineInput())
 	} else {
 		lines = append(lines, m.renderInfoRow())
+	}
+
+	// Loading status row
+	if loading := m.renderLoadingStatus(); loading != "" {
+		lines = append(lines, " "+loading)
 	}
 
 	// Splits panel
@@ -105,9 +114,8 @@ func (m Model) renderLeftPane(width int) string {
 }
 
 // renderIntegratedSlider merges the waveform into the slider track characters.
-func (m Model) renderIntegratedSlider(width int) string {
-	var b strings.Builder
-
+// Returns two rows: top = amplitude peaks, bottom = activity density + silence brackets.
+func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 	startIdx := int(m.animStartPos / m.duration * float64(width))
 	endIdx := int(m.animEndPos / m.duration * float64(width))
 	if startIdx < 0 {
@@ -119,71 +127,137 @@ func (m Model) renderIntegratedSlider(width int) string {
 
 	hasWaveform := len(m.waveform) > 0
 
+	// Pre-pass: find silence run boundaries for bracket markers.
+	silenceStart := make(map[int]bool, width)
+	silenceEnd := make(map[int]bool, width)
+	prevSilence := false
 	for i := range width {
-		seconds := float64(i) / float64(width) * m.duration
-		silence := m.isSilenceAt(seconds)
+		s := m.isSilenceAt(float64(i) / float64(width) * m.duration)
+		if s && !prevSilence {
+			silenceStart[i] = true
+		}
+		if !s && prevSilence {
+			silenceEnd[i-1] = true
+		}
+		prevSilence = s
+	}
+	if prevSilence {
+		silenceEnd[width-1] = true
+	}
 
-		// Handle positions
-		switch i {
-		case startIdx:
+	var top, bot strings.Builder
+
+	for i := range width {
+		silence := m.isSilenceAt(float64(i) / float64(width) * m.duration)
+
+		// Handle positions — same vertical bar in both rows.
+		if i == startIdx {
 			if m.adjustingStart {
-				b.WriteString(handleActiveStyle.Render("┃"))
+				top.WriteString(handleActiveStyle.Render("┃"))
+				bot.WriteString(handleActiveStyle.Render("┃"))
 			} else {
-				b.WriteString(handleInactiveStyle.Render("│"))
+				top.WriteString(handleInactiveStyle.Render("│"))
+				bot.WriteString(handleInactiveStyle.Render("│"))
 			}
 			continue
-		case endIdx:
+		}
+		if i == endIdx {
 			if !m.adjustingStart {
-				b.WriteString(handleActiveStyle.Render("┃"))
+				top.WriteString(handleActiveStyle.Render("┃"))
+				bot.WriteString(handleActiveStyle.Render("┃"))
 			} else {
-				b.WriteString(handleInactiveStyle.Render("│"))
+				top.WriteString(handleInactiveStyle.Render("│"))
+				bot.WriteString(handleInactiveStyle.Render("│"))
 			}
 			continue
 		}
 
 		inRange := i > startIdx && i < endIdx
 
-		// Get waveform character if available
-		if hasWaveform && !silence {
+		if silence {
+			// Top row: blank space in silence style.
+			if inRange {
+				top.WriteString(silenceInStyle.Render(" "))
+			} else {
+				top.WriteString(silenceOutStyle.Render(" "))
+			}
+			// Bottom row: bracket markers.
+			var bracket string
+			switch {
+			case silenceStart[i] && silenceEnd[i]:
+				bracket = "⌊"
+			case silenceStart[i]:
+				bracket = "⌊"
+			case silenceEnd[i]:
+				bracket = "⌋"
+			default:
+				bracket = "╌"
+			}
+			if inRange {
+				bot.WriteString(silenceInStyle.Render(bracket))
+			} else {
+				bot.WriteString(silenceOutStyle.Render(bracket))
+			}
+			continue
+		}
+
+		// Audio column.
+		if hasWaveform {
 			sampleIdx := i * len(m.waveform) / width
 			if sampleIdx >= len(m.waveform) {
 				sampleIdx = len(m.waveform) - 1
 			}
 			amp := m.waveform[sampleIdx].Amplitude
+
+			// Top row: amplitude peak bar.
 			level := max(int(amp*float64(len(sparks)-1)), 0)
 			if level >= len(sparks) {
 				level = len(sparks) - 1
 			}
-			ch := string(sparks[level])
+			topCh := string(sparks[level])
 			if inRange {
-				b.WriteString(selectedTrack.Render(ch))
+				top.WriteString(selectedTrack.Render(topCh))
 			} else {
-				b.WriteString(unselectedTrack.Render(ch))
+				top.WriteString(unselectedTrack.Render(topCh))
 			}
-			continue
-		}
 
-		// Fallback to simple track chars
-		if inRange {
-			if silence {
-				b.WriteString(silenceInStyle.Render("┄"))
+			// Bottom row: activity density.
+			var density string
+			switch {
+			case amp < 0.10:
+				density = " "
+			case amp < 0.30:
+				density = "░"
+			case amp < 0.60:
+				density = "▒"
+			case amp < 0.80:
+				density = "▓"
+			default:
+				density = "█"
+			}
+			if inRange {
+				bot.WriteString(selectedTrack.Render(density))
 			} else {
-				b.WriteString(selectedTrack.Render("━"))
+				bot.WriteString(unselectedTrack.Render(density))
 			}
 		} else {
-			if silence {
-				b.WriteString(silenceOutStyle.Render("┈"))
+			// No waveform: simple track chars in both rows.
+			if inRange {
+				top.WriteString(selectedTrack.Render("━"))
+				bot.WriteString(selectedTrack.Render("━"))
 			} else {
-				b.WriteString(unselectedTrack.Render("─"))
+				top.WriteString(unselectedTrack.Render("─"))
+				bot.WriteString(unselectedTrack.Render("─"))
 			}
 		}
 	}
 
-	return b.String()
+	return top.String(), bot.String()
 }
 
 // renderSliderWithSegments renders the slider showing multiple selected segments.
-func (m Model) renderSliderWithSegments(width int) string {
+// Returns two rows: top = track chars, bottom = silence brackets.
+func (m Model) renderSliderWithSegments(width int) (topRow, bottomRow string) {
 	segments := m.selectedSegments()
 	if len(segments) == 0 {
 		return m.renderIntegratedSlider(width)
@@ -216,29 +290,85 @@ func (m Model) renderSliderWithSegments(width int) string {
 		}
 	}
 
-	var b strings.Builder
+	// Pre-pass: silence run boundaries.
+	silenceStart := make(map[int]bool, width)
+	silenceEnd := make(map[int]bool, width)
+	prevSilence := false
+	for i := range width {
+		s := m.isSilenceAt(float64(i) / float64(width) * m.duration)
+		if s && !prevSilence {
+			silenceStart[i] = true
+		}
+		if !s && prevSilence {
+			silenceEnd[i-1] = true
+		}
+		prevSilence = s
+	}
+	if prevSilence {
+		silenceEnd[width-1] = true
+	}
+
+	var top, bot strings.Builder
 	for i := range width {
 		if i == cursorCol {
-			b.WriteString(handleActiveStyle.Render("┃"))
+			top.WriteString(handleActiveStyle.Render("┃"))
+			bot.WriteString(handleActiveStyle.Render("┃"))
 			continue
 		}
-		seconds := float64(i) / float64(width) * m.duration
-		silence := m.isSilenceAt(seconds)
-		if cols[i] == 's' {
-			if silence {
-				b.WriteString(silenceInStyle.Render("┄"))
+		silence := m.isSilenceAt(float64(i) / float64(width) * m.duration)
+		selected := cols[i] == 's'
+
+		if silence {
+			// Top: blank.
+			if selected {
+				top.WriteString(silenceInStyle.Render(" "))
 			} else {
-				b.WriteString(selectedTrack.Render("━"))
+				top.WriteString(silenceOutStyle.Render(" "))
+			}
+			// Bottom: bracket markers.
+			var bracket string
+			switch {
+			case silenceStart[i]:
+				bracket = "⌊"
+			case silenceEnd[i]:
+				bracket = "⌋"
+			default:
+				bracket = "╌"
+			}
+			if selected {
+				bot.WriteString(silenceInStyle.Render(bracket))
+			} else {
+				bot.WriteString(silenceOutStyle.Render(bracket))
 			}
 		} else {
-			if silence {
-				b.WriteString(silenceOutStyle.Render("┈"))
+			if selected {
+				top.WriteString(selectedTrack.Render("━"))
+				bot.WriteString(selectedTrack.Render("━"))
 			} else {
-				b.WriteString(unselectedTrack.Render("─"))
+				top.WriteString(unselectedTrack.Render("─"))
+				bot.WriteString(unselectedTrack.Render("─"))
 			}
 		}
 	}
-	return b.String()
+	return top.String(), bot.String()
+}
+
+func (m Model) renderLoadingStatus() string {
+	if !m.isLoading() {
+		return ""
+	}
+	spinner := string(loadingSpinner[m.loadingFrame%len(loadingSpinner)])
+	var items []string
+	if m.waveformCh != nil {
+		items = append(items, "waveform")
+	}
+	if m.silenceCh != nil {
+		items = append(items, "silence")
+	}
+	if m.storyboardCh != nil {
+		items = append(items, "storyboard")
+	}
+	return faintStyle.Render(spinner + " " + strings.Join(items, " · "))
 }
 
 func (m Model) renderTimeRuler(width int) (labels string, ticks string) {

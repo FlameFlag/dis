@@ -130,3 +130,15 @@ func (m Model) hasWordSelection() bool {
 func (m Model) nearestWordIndex(seconds float64) int {
 	return util.NearestIndex(m.words, seconds, func(w subtitle.Word) float64 { return w.Start })
 }
+
+// selectWordsInRanges pre-selects words that overlap any of the given time ranges.
+func (m *Model) selectWordsInRanges(ranges []trimRange) {
+	for i, word := range m.words {
+		for _, r := range ranges {
+			if word.Start < r.end && word.End > r.start {
+				m.selected[i] = true
+				break
+			}
+		}
+	}
+}
