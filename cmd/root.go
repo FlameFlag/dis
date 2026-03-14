@@ -28,6 +28,7 @@ var rootCmd = &cobra.Command{
 	Use:   "dis [flags] <input>...",
 	Short: "Video downloader and compressor",
 	Long:  "Download and compress videos from URLs or local files using yt-dlp and FFmpeg.",
+	Args:  cobra.ArbitraryArgs,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			_ = cmd.Help()

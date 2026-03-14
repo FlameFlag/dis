@@ -3,7 +3,6 @@ package convert
 import (
 	"bufio"
 	"context"
-	"dis/internal/util"
 	"fmt"
 	"os/exec"
 	"slices"
@@ -30,12 +29,12 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 	}
 
 	scanner := bufio.NewScanner(stderr)
-	scanner.Split(util.ScanFFmpegLines)
+	scanner.Split(ScanFFmpegLines)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if totalDuration > 0 && onProgress != nil {
-			if t := util.ParseFFmpegTime(line); t > 0 {
+			if t := ParseFFmpegTime(line); t > 0 {
 				pct := min(int(t/totalDuration*100), 100)
 				if pct > 0 {
 					onProgress(pct)

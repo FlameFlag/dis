@@ -4,7 +4,6 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
-	"dis/internal/util"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/log"
 	"github.com/dustin/go-humanize"
 )
@@ -158,7 +158,7 @@ func copyAndLog(s *config.Settings, path string) {
 	if !s.Copy {
 		return
 	}
-	if err := util.CopyToClipboard(path); err != nil {
+	if err := clipboard.WriteAll(path); err != nil {
 		log.Warn("Could not copy to clipboard", "err", err)
 	} else {
 		log.Info("Copied to clipboard", "path", path)

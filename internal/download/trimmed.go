@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"dis/internal/config"
+	"dis/internal/convert"
 	"dis/internal/tui"
 	"dis/internal/util"
 	"fmt"
@@ -87,7 +88,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 	// Parse stderr for ffmpeg's time= progress
 	wg.Go(func() {
 		scanner := bufio.NewScanner(stderr)
-		scanner.Split(util.ScanFFmpegLines)
+		scanner.Split(convert.ScanFFmpegLines)
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -97,7 +98,7 @@ func downloadTrimmedRaw(ctx context.Context, rawURL string, s *config.Settings, 
 			mu.Unlock()
 
 			if trim.Duration > 0 {
-				if t := util.ParseFFmpegTime(line); t > 0 {
+				if t := convert.ParseFFmpegTime(line); t > 0 {
 					pct := min(t/trim.Duration*100, 100)
 					emit(pct)
 				}
