@@ -48,7 +48,7 @@ func Open() (*Store, error) {
 	migrateOnce.Do(func() {
 		migrateErr = db.AutoMigrate(
 			&MetadataCache{}, &TranscriptCache{},
-			&WaveformCache{}, &SilenceCache{}, &SponsorBlockCache{},
+			&SilenceCache{}, &SponsorBlockCache{},
 		)
 	})
 	if migrateErr != nil {
@@ -73,7 +73,6 @@ func (s *Store) DeleteExpired() {
 		cutoff := cutoffUnix()
 		s.db.Where("created_at <= ?", cutoff).Delete(&MetadataCache{})
 		s.db.Where("created_at <= ?", cutoff).Delete(&TranscriptCache{})
-		s.db.Where("created_at <= ?", cutoff).Delete(&WaveformCache{})
 		s.db.Where("created_at <= ?", cutoff).Delete(&SilenceCache{})
 		s.db.Where("created_at <= ?", cutoff).Delete(&SponsorBlockCache{})
 	})

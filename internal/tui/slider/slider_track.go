@@ -2,8 +2,8 @@ package slider
 
 import "strings"
 
-// renderIntegratedSlider merges the waveform into the slider track characters.
-// Returns two rows: top = amplitude peaks, bottom = activity density + silence brackets.
+// renderIntegratedSlider renders the slider track with silence brackets.
+// Returns two rows: top = track chars, bottom = silence brackets.
 func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 	startIdx := int(m.animStartPos / m.duration * float64(width))
 	endIdx := int(m.animEndPos / m.duration * float64(width))
@@ -13,8 +13,6 @@ func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 	if endIdx >= width {
 		endIdx = width - 1
 	}
-
-	hasWaveform := len(m.waveform) > 0
 
 	// Pre-pass: find silence run boundaries for bracket markers.
 	silenceStart := make(map[int]bool, width)
@@ -90,54 +88,13 @@ func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 			continue
 		}
 
-		// Audio column.
-		if hasWaveform {
-			sampleIdx := i * len(m.waveform) / width
-			if sampleIdx >= len(m.waveform) {
-				sampleIdx = len(m.waveform) - 1
-			}
-			amp := m.waveform[sampleIdx].Amplitude
-
-			// Top row: amplitude peak bar.
-			level := max(int(amp*float64(len(sparks)-1)), 0)
-			if level >= len(sparks) {
-				level = len(sparks) - 1
-			}
-			topCh := string(sparks[level])
-			if inRange {
-				top.WriteString(selectedTrack.Render(topCh))
-			} else {
-				top.WriteString(unselectedTrack.Render(topCh))
-			}
-
-			// Bottom row: activity density.
-			var density string
-			switch {
-			case amp < 0.10:
-				density = " "
-			case amp < 0.30:
-				density = "░"
-			case amp < 0.60:
-				density = "▒"
-			case amp < 0.80:
-				density = "▓"
-			default:
-				density = "█"
-			}
-			if inRange {
-				bot.WriteString(selectedTrack.Render(density))
-			} else {
-				bot.WriteString(unselectedTrack.Render(density))
-			}
+		// Simple track chars in both rows.
+		if inRange {
+			top.WriteString(selectedTrack.Render("━"))
+			bot.WriteString(selectedTrack.Render("━"))
 		} else {
-			// No waveform: simple track chars in both rows.
-			if inRange {
-				top.WriteString(selectedTrack.Render("━"))
-				bot.WriteString(selectedTrack.Render("━"))
-			} else {
-				top.WriteString(unselectedTrack.Render("─"))
-				bot.WriteString(unselectedTrack.Render("─"))
-			}
+			top.WriteString(unselectedTrack.Render("─"))
+			bot.WriteString(unselectedTrack.Render("─"))
 		}
 	}
 

@@ -97,9 +97,6 @@ func (m Model) renderLoadingStatus() string {
 	}
 	spinner := string(loadingSpinner[m.loadingFrame%len(loadingSpinner)])
 	var items []string
-	if m.waveformCh != nil {
-		items = append(items, "waveform")
-	}
 	if m.silenceCh != nil {
 		items = append(items, "silence")
 	}

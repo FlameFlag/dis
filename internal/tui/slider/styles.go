@@ -30,8 +30,6 @@ var (
 	handleInactiveStyle = lipgloss.NewStyle().Foreground(tui.ColorOverlay0)
 )
 
-var sparks = []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
-
 type sponsorCategoryStyle struct {
 	Color lipgloss.Style
 	Label string

@@ -153,7 +153,6 @@ type sliderData struct {
 	markers      []slider.ChapterMarker
 	transcriptCh <-chan subtitle.Transcript
 	silenceCh    <-chan []subtitle.SilenceInterval
-	waveformCh   <-chan []subtitle.WaveformSample
 	sbCh         <-chan *storyboard.StoryboardData
 	sbSegmentsCh <-chan []sponsorblock.Segment
 }
@@ -238,20 +237,6 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 			return nil
 		})
 
-		wavCh := make(chan []subtitle.WaveformSample, 1)
-		d.waveformCh = wavCh
-		g.Go(func() error {
-			defer close(wavCh)
-			samples, err := subtitle.ExtractWaveform(gctx, links[0], 200)
-			if err != nil {
-				log.Debug("Waveform extraction failed", "err", err)
-				return nil
-			}
-			if len(samples) > 0 {
-				wavCh <- samples
-			}
-			return nil
-		})
 	}
 
 	if info != nil {
@@ -264,7 +249,7 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 }
 
 func runSlider(data *sliderData, gifEnabled bool) (*slider.TrimResult, error) {
-	return slider.Run(data.duration, data.transcriptCh, data.silenceCh, data.waveformCh, data.sbCh, data.sbSegmentsCh, gifEnabled, data.markers...)
+	return slider.Run(data.duration, data.transcriptCh, data.silenceCh, data.sbCh, data.sbSegmentsCh, gifEnabled, data.markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {
