@@ -68,7 +68,7 @@ func (m Model) renderLeftPane(width int) string {
 	// Splits panel
 	if len(m.splits) > 0 && !m.isSelectMode() {
 		lines = append(lines, "")
-		lines = append(lines, m.renderSplitsPanelLines(w)...)
+		lines = append(lines, m.renderSplitsPanelLines(w, MaxVisibleSplits)...)
 	}
 
 	// Thumbnail preview

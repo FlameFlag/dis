@@ -121,8 +121,10 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Save current range as a split (guard: end > start)
 		if m.endPos > m.startPos {
 			m.splits = append(m.splits, trimRange{start: m.startPos, end: m.endPos})
+			m.startPos = 0
+			m.endPos = m.duration
 		}
-		return m, nil
+		return m, m.triggerAnim()
 
 	case key.Matches(msg, keys.DeleteSplit):
 		// Pop last saved split

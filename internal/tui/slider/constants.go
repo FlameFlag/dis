@@ -16,6 +16,7 @@ const (
 	SpringFreq    = 6.0
 	SpringDamping = 0.9
 
-	MinTwoPaneWidth = 80 // minimum terminal width for two-pane split layout
-	LeftPaneRatio   = 55 // percentage of width allocated to timeline pane
+	MaxVisibleSplits = 5  // max splits shown before truncation
+	MinTwoPaneWidth  = 80 // minimum terminal width for two-pane split layout
+	LeftPaneRatio    = 55 // percentage of width allocated to timeline pane
 )

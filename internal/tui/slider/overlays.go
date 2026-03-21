@@ -151,7 +151,7 @@ func (m Model) renderSponsorSegments(width int) string {
 	return b.String()
 }
 
-func (m Model) renderSplitsPanelLines(width int) []string {
+func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 	if len(m.splits) == 0 {
 		return nil
 	}
@@ -168,10 +168,21 @@ func (m Model) renderSplitsPanelLines(width int) []string {
 	fillLen := max(panelWidth-len(headerLabel), 1)
 	lines = append(lines, " "+dimStyle.Render(headerLabel+strings.Repeat("─", fillLen)))
 
-	for i, s := range m.splits {
+	hidden := 0
+	visible := m.splits
+	if maxVisible > 0 && len(m.splits) > maxVisible {
+		hidden = len(m.splits) - maxVisible
+		visible = m.splits[hidden:]
+	}
+
+	if hidden > 0 {
+		lines = append(lines, "   "+faintStyle.Render(fmt.Sprintf("… %d more above", hidden)))
+	}
+
+	for i, s := range visible {
 		dur := s.end - s.start
 		line := fmt.Sprintf("   %s  %s - %s  %s",
-			faintStyle.Render(fmt.Sprintf("%d", i+1)),
+			faintStyle.Render(fmt.Sprintf("%d", hidden+i+1)),
 			valueStyle.Render(util.FormatDurationShort(s.start)),
 			valueStyle.Render(util.FormatDurationShort(s.end)),
 			faintStyle.Render("("+util.FormatDurationShort(dur)+")"))
