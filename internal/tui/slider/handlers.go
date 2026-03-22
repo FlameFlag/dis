@@ -138,10 +138,10 @@ func (m Model) handleSelectMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Search):
 		m.mode = modeSearchSelect
-		m.searchBuffer = ""
+		m.searchInput.Reset()
 		m.searchResults = nil
 		m.searchIndex = 0
-		return m, nil
+		return m, m.searchInput.Focus()
 
 	case key.Matches(msg, keys.NextMatch):
 		if len(m.searchResults) > 0 {
@@ -168,7 +168,7 @@ func (m Model) handleSelectMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		// Confirm search and snap to current match
+		m.searchInput.Blur()
 		if m.mode == modeSearchSelect {
 			m.mode = modeSelect
 			if len(m.searchResults) > 0 {
@@ -181,28 +181,23 @@ func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.triggerAnim()
 
 	case key.Matches(msg, keys.Escape):
+		m.searchInput.Blur()
+		m.searchInput.Reset()
 		if m.mode == modeSearchSelect {
 			m.mode = modeSelect
 		} else {
 			m.mode = modeNormal
 		}
-		m.searchBuffer = ""
 		m.searchResults = nil
 		return m, nil
 
-	case key.Matches(msg, keys.Backspace):
-		if len(m.searchBuffer) > 0 {
-			m.searchBuffer = m.searchBuffer[:len(m.searchBuffer)-1]
-			m.updateSearchResults()
-		}
-		return m, nil
-
 	default:
-		ch := msg.String()
-		if len(ch) == 1 {
-			m.searchBuffer += ch
+		prevVal := m.searchInput.Value()
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(msg)
+		if m.searchInput.Value() != prevVal {
 			m.updateSearchResults()
 		}
-		return m, nil
+		return m, cmd
 	}
 }

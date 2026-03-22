@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/harmonica"
 )
@@ -52,7 +54,7 @@ type Model struct {
 	chapters       []ChapterMarker
 
 	// Loading spinner
-	loadingFrame int
+	loadingSpinner spinner.Model
 
 	// Transcript support (async)
 	transcript   subtitle.Transcript // nil until received
@@ -66,7 +68,7 @@ type Model struct {
 	selectAnchorSelecting bool   // true = shift-extend selects; false = deselects
 
 	// Search mode
-	searchBuffer  string
+	searchInput   textinput.Model
 	searchResults []int // matching indices (cue or word depending on mode)
 	searchIndex   int   // current match position
 
@@ -142,14 +144,9 @@ func animTick() tea.Cmd {
 	})
 }
 
-type loadingTickMsg struct{}
-
-var loadingSpinner = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
-
-func loadingTick() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
-		return loadingTickMsg{}
-	})
+var brailleSpinner = spinner.Spinner{
+	Frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+	FPS:    time.Second / 10,
 }
 
 func (m Model) isLoading() bool {
@@ -168,7 +165,11 @@ func (m *Model) triggerAnim() tea.Cmd {
 // New creates a new trim slider model.
 func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
 	_, gifErr := exec.LookPath("gifski")
+	si := textinput.New()
+	si.Prompt = ""
 	return Model{
+		loadingSpinner:  spinner.New(spinner.WithSpinner(brailleSpinner)),
+		searchInput:     si,
 		duration:        duration,
 		startPos:        0,
 		endPos:          duration,
@@ -237,7 +238,7 @@ func (m Model) Init() tea.Cmd {
 	}
 
 	if m.isLoading() {
-		cmds = append(cmds, loadingTick())
+		cmds = append(cmds, m.loadingSpinner.Tick)
 	}
 
 	return tea.Batch(cmds...)
@@ -269,10 +270,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sponsorSegments = msg.Segments
 		m.sponsorSegsCh = nil
 		return m, nil
-	case loadingTickMsg:
+	case spinner.TickMsg:
 		if m.isLoading() {
-			m.loadingFrame = (m.loadingFrame + 1) % len(loadingSpinner)
-			return m, loadingTick()
+			var cmd tea.Cmd
+			m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
+			return m, cmd
 		}
 		return m, nil
 	case animTickMsg:
@@ -308,6 +310,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			return m.handleNavigation(msg)
 		}
+	}
+	// Route cursor blink messages to textinput when in search mode
+	if m.isSearchMode() {
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }

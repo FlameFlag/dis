@@ -14,12 +14,8 @@ func (m Model) renderRightPane(width int) string {
 
 func (m Model) renderSearchInput() string {
 	matchInfo := ""
-	if m.searchBuffer != "" {
+	if m.searchInput.Value() != "" {
 		matchInfo = fmt.Sprintf("  (%d matches)", len(m.searchResults))
 	}
-	return fmt.Sprintf(" %s %s%s%s",
-		accentStyle.Render("/"),
-		m.searchBuffer,
-		faintStyle.Render("█"),
-		faintStyle.Render(matchInfo))
+	return " " + accentStyle.Render("/") + " " + m.searchInput.View() + faintStyle.Render(matchInfo)
 }

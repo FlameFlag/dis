@@ -67,9 +67,10 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Search):
 		if m.transcript != nil {
 			m.mode = modeSearch
-			m.searchBuffer = ""
+			m.searchInput.Reset()
 			m.searchResults = nil
 			m.searchIndex = 0
+			return m, m.searchInput.Focus()
 		}
 		return m, nil
 

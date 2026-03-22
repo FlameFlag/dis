@@ -1,10 +1,6 @@
 package slider
 
-import (
-	"strings"
-
-	"github.com/charmbracelet/lipgloss"
-)
+import "strings"
 
 func helpEntry(key, desc string) string {
 	return helpKeyStyle.Render(key) + " " + faintStyle.Render(desc)
@@ -72,26 +68,4 @@ func (m Model) renderHelpBar() string {
 		helpEntry("⏎", "done"),
 	}, sep)
 	return line1 + "\n" + line2
-}
-
-// padRight pads a string with spaces to reach the target visual width.
-func padRight(s string, targetWidth int) string {
-	w := lipgloss.Width(s)
-	if w >= targetWidth {
-		return s
-	}
-	return s + strings.Repeat(" ", targetWidth-w)
-}
-
-// truncateVisual truncates a string to at most maxWidth visual columns.
-func truncateVisual(s string, maxWidth int) string {
-	w := 0
-	for i, r := range s {
-		rw := lipgloss.Width(string(r))
-		if w+rw > maxWidth {
-			return s[:i]
-		}
-		w += rw
-	}
-	return s
 }

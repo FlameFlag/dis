@@ -95,7 +95,7 @@ func (m Model) renderLoadingStatus() string {
 	if !m.isLoading() {
 		return ""
 	}
-	spinner := string(loadingSpinner[m.loadingFrame%len(loadingSpinner)])
+	spinner := m.loadingSpinner.View()
 	var items []string
 	if m.silenceCh != nil {
 		items = append(items, "silence")

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) renderTranscriptPanel(width int) string {
@@ -52,7 +53,7 @@ func (m Model) renderTranscriptPanel(width int) string {
 
 		text := cue.Text
 		if lipgloss.Width(text) > textWidth && textWidth > 3 {
-			text = truncateVisual(text, textWidth-1) + "…"
+			text = ansi.Truncate(text, textWidth, "…")
 		}
 
 		sponsorCat := m.sponsorCategoryAt(cue.Start)

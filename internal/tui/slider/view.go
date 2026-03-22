@@ -60,9 +60,11 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	b.WriteString(borderStyle.Render("╭") + borderStyle.Render(topLeft) + divColor.Render("┬") + divColor.Render(topRight) + divColor.Render("╮") + "\n")
 
 	// Body rows
+	leftPad := lipgloss.NewStyle().Width(leftW)
+	rightPad := lipgloss.NewStyle().Width(rightW)
 	for i := range maxH {
-		ll := padRight(leftLines[i], leftW)
-		rl := padRight(rightLines[i], rightW)
+		ll := leftPad.Render(leftLines[i])
+		rl := rightPad.Render(rightLines[i])
 		b.WriteString(borderStyle.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
 	}
 
@@ -87,8 +89,9 @@ func (m Model) renderSingleColumnLayout(content string, innerW int) string {
 	// Top border
 	b.WriteString(borderStyle.Render("╭") + borderStyle.Render("─ Timeline "+strings.Repeat("─", max(innerW-11, 0))) + borderStyle.Render("╮") + "\n")
 
+	innerPad := lipgloss.NewStyle().Width(innerW)
 	for _, line := range lines {
-		b.WriteString(borderStyle.Render("│") + padRight(line, innerW) + borderStyle.Render("│") + "\n")
+		b.WriteString(borderStyle.Render("│") + innerPad.Render(line) + borderStyle.Render("│") + "\n")
 	}
 
 	// Search input

@@ -3,15 +3,15 @@ package slider
 import "math"
 
 func (m *Model) updateSearchResults() {
-	if m.searchBuffer == "" {
+	if m.searchInput.Value() == "" {
 		m.searchResults = nil
 		m.searchIndex = 0
 		return
 	}
 	if m.mode == modeSearchSelect {
-		m.searchResults = m.transcript.SearchWords(m.words, m.searchBuffer)
+		m.searchResults = m.transcript.SearchWords(m.words, m.searchInput.Value())
 	} else {
-		m.searchResults = m.transcript.Search(m.searchBuffer)
+		m.searchResults = m.transcript.Search(m.searchInput.Value())
 	}
 	m.searchIndex = 0
 }
