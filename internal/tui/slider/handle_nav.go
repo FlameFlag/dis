@@ -40,8 +40,8 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Space):
 		m.mode = modeInput
-		m.inputBuffer = ""
-		return m, nil
+		m.timeInput.Reset()
+		return m, m.timeInput.Focus()
 
 	case key.Matches(msg, keys.PageUp):
 		if m.transcript != nil {

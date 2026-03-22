@@ -46,9 +46,9 @@ type Model struct {
 	startPos       float64
 	endPos         float64
 	adjustingStart bool
-	mode           sliderMode
-	inputBuffer    string
-	confirmed      bool
+	mode      sliderMode
+	timeInput textinput.Model
+	confirmed bool
 	cancelled      bool
 	width          int
 	chapters       []ChapterMarker
@@ -167,9 +167,13 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-
 	_, gifErr := exec.LookPath("gifski")
 	si := textinput.New()
 	si.Prompt = ""
+	ti := textinput.New()
+	ti.Prompt = ""
+	ti.Validate = validateTimeInput
 	return Model{
 		loadingSpinner:  spinner.New(spinner.WithSpinner(brailleSpinner)),
 		searchInput:     si,
+		timeInput:       ti,
 		duration:        duration,
 		startPos:        0,
 		endPos:          duration,
@@ -311,10 +315,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleNavigation(msg)
 		}
 	}
-	// Route cursor blink messages to textinput when in search mode
-	if m.isSearchMode() {
+	// Route cursor blink messages to active textinput
+	switch {
+	case m.isSearchMode():
 		var cmd tea.Cmd
 		m.searchInput, cmd = m.searchInput.Update(msg)
+		return m, cmd
+	case m.mode == modeInput:
+		var cmd tea.Cmd
+		m.timeInput, cmd = m.timeInput.Update(msg)
 		return m, cmd
 	}
 	return m, nil

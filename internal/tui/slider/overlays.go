@@ -5,6 +5,8 @@ import (
 	"dis/internal/util"
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func bufHasOverlap(buf []byte, start, length int) bool {
@@ -51,7 +53,7 @@ func (m Model) renderChapterLabels(width int) string {
 		lbl := ch.title
 		maxLen := width / max(len(chapters), 1)
 		if len(lbl) > maxLen && maxLen > 3 {
-			lbl = lbl[:maxLen-1] + "…"
+			lbl = ansi.Truncate(lbl, maxLen, "…")
 		}
 		start := max(ch.pos-len(lbl)/2, 0)
 		if start+len(lbl) > width {

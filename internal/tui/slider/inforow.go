@@ -55,24 +55,20 @@ func (m Model) renderSelectInfo() string {
 }
 
 func (m Model) renderInlineInput() string {
-	cursor := "█"
-	inputVal := cursor
-	if m.inputBuffer != "" {
-		inputVal = m.inputBuffer + cursor
-	}
+	inputView := m.timeInput.View()
 
 	startStr := util.FormatDurationShort(m.startPos)
 	endStr := util.FormatDurationShort(m.endPos)
 
 	if m.adjustingStart {
 		return fmt.Sprintf(" %s %s  %s %s  %s %s",
-			faintStyle.Render("start"), accentBold.Render(inputVal),
+			faintStyle.Render("start"), inputView,
 			faintStyle.Render("end"), valueStyle.Render(endStr),
 			faintStyle.Render("length"), faintStyle.Render("--:--"))
 	}
 	return fmt.Sprintf(" %s %s  %s %s  %s %s",
 		faintStyle.Render("start"), valueStyle.Render(startStr),
-		faintStyle.Render("end"), accentBold.Render(inputVal),
+		faintStyle.Render("end"), inputView,
 		faintStyle.Render("length"), faintStyle.Render("--:--"))
 }
 

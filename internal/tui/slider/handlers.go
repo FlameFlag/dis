@@ -8,30 +8,23 @@ import (
 func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		if m.inputBuffer != "" {
+		if m.timeInput.Value() != "" {
 			m.processTimeInput()
 		}
+		m.timeInput.Blur()
 		m.mode = modeNormal
-		m.inputBuffer = ""
 		return m, m.triggerAnim()
 
 	case key.Matches(msg, keys.Escape):
+		m.timeInput.Blur()
+		m.timeInput.Reset()
 		m.mode = modeNormal
-		m.inputBuffer = ""
-		return m, nil
-
-	case key.Matches(msg, keys.Backspace):
-		if len(m.inputBuffer) > 0 {
-			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-		}
 		return m, nil
 
 	default:
-		ch := msg.String()
-		if len(ch) == 1 && isValidTimeChar(rune(ch[0])) {
-			m.inputBuffer += ch
-		}
-		return m, nil
+		var cmd tea.Cmd
+		m.timeInput, cmd = m.timeInput.Update(msg)
+		return m, cmd
 	}
 }
 

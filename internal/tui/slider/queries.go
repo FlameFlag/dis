@@ -3,6 +3,7 @@ package slider
 import (
 	"dis/internal/sponsorblock"
 	"dis/internal/util"
+	"fmt"
 	"math"
 	"unicode"
 )
@@ -81,7 +82,7 @@ func (m *Model) roundPositions() {
 }
 
 func (m *Model) processTimeInput() {
-	seconds, err := util.ParseTimeValue(m.inputBuffer)
+	seconds, err := util.ParseTimeValue(m.timeInput.Value())
 	if err != nil {
 		return
 	}
@@ -98,6 +99,11 @@ func (m *Model) processTimeInput() {
 	m.roundPositions()
 }
 
-func isValidTimeChar(c rune) bool {
-	return unicode.IsDigit(c) || c == ':' || c == '.'
+func validateTimeInput(s string) error {
+	for _, c := range s {
+		if !unicode.IsDigit(c) && c != ':' && c != '.' {
+			return fmt.Errorf("invalid character: %c", c)
+		}
+	}
+	return nil
 }
