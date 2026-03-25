@@ -115,7 +115,7 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m Model) renderWordSelectPanel(width int) string {
+func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 	if len(m.words) == 0 {
 		return ""
 	}
@@ -151,11 +151,17 @@ func (m Model) renderWordSelectPanel(width int) string {
 		}
 	}
 
-	startGroup := max(cursorGroup-WordSelectPinOffset, 0)
-	endGroup := startGroup + WordSelectVisibleCues
+	visibleCues := WordSelectVisibleCues
+	if targetHeight > 0 {
+		visibleCues = max(targetHeight-2, WordSelectVisibleCues)
+	}
+	pinOffset := visibleCues / 3
+
+	startGroup := max(cursorGroup-pinOffset, 0)
+	endGroup := startGroup + visibleCues
 	if endGroup > len(groups) {
 		endGroup = len(groups)
-		startGroup = max(endGroup-WordSelectVisibleCues, 0)
+		startGroup = max(endGroup-visibleCues, 0)
 	}
 
 	selectedStyle := lipgloss.NewStyle().Foreground(tui.ColorPeach)

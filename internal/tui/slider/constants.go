@@ -7,10 +7,8 @@ const (
 	SecondStep      = 1.0
 	MillisecondStep = 0.01
 
-	TranscriptVisibleCues = 8  // cues visible in transcript panel
-	WordSelectVisibleCues = 12 // cue groups visible in word select panel
-	TranscriptPinOffset   = TranscriptVisibleCues / 3
-	WordSelectPinOffset   = WordSelectVisibleCues / 3
+	TranscriptVisibleCues = 8  // minimum cues visible in transcript panel
+	WordSelectVisibleCues = 12 // minimum cue groups visible in word select panel
 
 	AnimFPS       = 60
 	SpringFreq    = 6.0

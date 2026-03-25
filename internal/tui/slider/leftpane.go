@@ -8,6 +8,10 @@ import (
 )
 
 func (m Model) renderLeftPane(width int) string {
+	return m.renderLeftPaneWithHeight(width, 0)
+}
+
+func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 	var lines []string
 	w := max(width-2, MinSliderWidth) // inner padding
 
@@ -67,27 +71,36 @@ func (m Model) renderLeftPane(width int) string {
 		lines = append(lines, m.renderSplitsPanelLines(w, MaxVisibleSplits)...)
 	}
 
-	// Thumbnail preview
+	// Collect bottom-pinned elements (thumbnail, warning, format badge)
+	var bottomLines []string
+
 	if thumb := m.renderThumbnail(w); thumb != "" {
-		lines = append(lines, "")
+		bottomLines = append(bottomLines, "")
 		for tl := range strings.SplitSeq(thumb, "\n") {
-			lines = append(lines, " "+tl)
+			bottomLines = append(bottomLines, " "+tl)
 		}
 	}
 
-	// Warning (if any)
 	if m.warning != "" {
-		lines = append(lines, "")
-		lines = append(lines, " "+warnStyle.Render(m.warning))
+		bottomLines = append(bottomLines, "")
+		bottomLines = append(bottomLines, " "+warnStyle.Render(m.warning))
 	}
 
-	// Format badge at bottom-right
 	formatBadge := m.renderFormatBadge()
 	if formatBadge != "" {
-		// Pad the last line or add a new one with right-aligned badge
-		lines = append(lines, strings.Repeat(" ", max(width-lipgloss.Width(formatBadge)-1, 0))+formatBadge)
+		bottomLines = append(bottomLines, strings.Repeat(" ", max(width-lipgloss.Width(formatBadge)-1, 0))+formatBadge)
 	}
 
+	// Insert padding between main content and bottom elements to fill height
+	if targetHeight > 0 {
+		usedLines := len(lines) + len(bottomLines)
+		for usedLines < targetHeight {
+			lines = append(lines, "")
+			usedLines++
+		}
+	}
+
+	lines = append(lines, bottomLines...)
 	return strings.Join(lines, "\n")
 }
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) View() string {
@@ -13,20 +14,34 @@ func (m Model) View() string {
 	}
 
 	helpBar := m.renderHelpBar()
+	helpH := strings.Count(helpBar, "\n") + 1
+
+	// Available content height: terminal height minus border chrome
+	// top border (1) + help separator (1) + help lines + bottom border (1) + final newline (1)
+	contentHeight := 0
+	if m.height > 0 {
+		overhead := 1 + 1 + helpH + 1 + 1
+		if m.isSearchMode() {
+			overhead++
+		}
+		contentHeight = max(m.height-overhead, 0)
+	}
 
 	if m.isTwoPane() {
 		leftW := m.leftPaneWidth()
 		rightW := m.rightPaneWidth()
-		left := m.renderLeftPane(leftW)
+		left := m.renderLeftPaneWithHeight(leftW, contentHeight)
 		leftHeight := strings.Count(left, "\n") + 1
-		right := m.renderRightPaneWithHeight(rightW, leftHeight)
+		targetHeight := max(leftHeight, contentHeight)
+		right := m.renderRightPaneWithHeight(rightW, targetHeight)
 		body := m.renderBorderedLayout(left, leftW, right, rightW, helpBar)
 		return body + "\n"
 	}
 
 	// Single-column fallback
-	left := m.renderLeftPane(m.width - 2)
-	body := m.renderSingleColumnLayout(left, m.width-2, helpBar)
+	innerW := m.width - 2
+	left := m.renderLeftPaneWithHeight(innerW, contentHeight)
+	body := m.renderSingleColumnLayout(left, innerW, helpBar)
 	return body + "\n"
 }
 
@@ -81,9 +96,13 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	helpLines := strings.Split(helpBar, "\n")
 	// Separator before help
 	b.WriteString(borderStyle.Render("├") + borderStyle.Render(strings.Repeat("─", leftW)) + borderStyle.Render("┴") + borderStyle.Render(strings.Repeat("─", rightW)) + borderStyle.Render("┤") + "\n")
-	helpPad := lipgloss.NewStyle().Width(innerW)
 	for _, hl := range helpLines {
-		b.WriteString(borderStyle.Render("│") + helpPad.Render(hl) + borderStyle.Render("│") + "\n")
+		w := lipgloss.Width(hl)
+		if w > innerW {
+			hl = ansi.Truncate(hl, innerW, "")
+			w = lipgloss.Width(hl)
+		}
+		b.WriteString(borderStyle.Render("│") + hl + strings.Repeat(" ", max(innerW-w, 0)) + borderStyle.Render("│") + "\n")
 	}
 
 	// Bottom border
@@ -115,9 +134,13 @@ func (m Model) renderSingleColumnLayout(content string, innerW int, helpBar stri
 	// Help bar inside the box
 	helpLines := strings.Split(helpBar, "\n")
 	b.WriteString(borderStyle.Render("├") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("┤") + "\n")
-	innerPadHelp := lipgloss.NewStyle().Width(innerW)
 	for _, hl := range helpLines {
-		b.WriteString(borderStyle.Render("│") + innerPadHelp.Render(hl) + borderStyle.Render("│") + "\n")
+		w := lipgloss.Width(hl)
+		if w > innerW {
+			hl = ansi.Truncate(hl, innerW, "")
+			w = lipgloss.Width(hl)
+		}
+		b.WriteString(borderStyle.Render("│") + hl + strings.Repeat(" ", max(innerW-w, 0)) + borderStyle.Render("│") + "\n")
 	}
 
 	b.WriteString(borderStyle.Render("╰") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("╯"))
