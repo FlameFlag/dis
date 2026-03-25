@@ -21,6 +21,16 @@ func FormatDurationShort(seconds float64) string {
 	return fmt.Sprintf("%d:%02d", mins, secs)
 }
 
+// FormatDurationMillis formats seconds as "M:SS.mmm" with millisecond precision.
+func FormatDurationMillis(seconds float64) string {
+	seconds = math.Abs(seconds)
+	d := time.Duration(seconds * float64(time.Second))
+	mins := int(d.Minutes())
+	secs := int(d.Seconds()) % 60
+	ms := int(d.Milliseconds()) % 1000
+	return fmt.Sprintf("%d:%02d.%03d", mins, secs, ms)
+}
+
 // ParseTimeValue parses "MM:SS", "MM:SS.cs", or a plain float string into seconds.
 func ParseTimeValue(input string) (float64, error) {
 	input = strings.TrimSpace(input)

@@ -7,10 +7,10 @@ import (
 )
 
 func (m Model) renderInfoRow() string {
-	startStr := util.FormatDurationShort(m.startPos)
-	endStr := util.FormatDurationShort(m.endPos)
+	startStr := util.FormatDurationMillis(m.startPos)
+	endStr := util.FormatDurationMillis(m.endPos)
 	length := m.endPos - m.startPos
-	lengthStr := util.FormatDurationShort(length)
+	lengthStr := util.FormatDurationMillis(length)
 
 	var styledStart, styledEnd string
 	if m.adjustingStart {
@@ -57,19 +57,19 @@ func (m Model) renderSelectInfo() string {
 func (m Model) renderInlineInput() string {
 	inputView := m.timeInput.View()
 
-	startStr := util.FormatDurationShort(m.startPos)
-	endStr := util.FormatDurationShort(m.endPos)
+	startStr := util.FormatDurationMillis(m.startPos)
+	endStr := util.FormatDurationMillis(m.endPos)
 
 	if m.adjustingStart {
 		return fmt.Sprintf(" %s %s  %s %s  %s %s",
 			faintStyle.Render("start"), inputView,
 			faintStyle.Render("end"), valueStyle.Render(endStr),
-			faintStyle.Render("length"), faintStyle.Render("--:--"))
+			faintStyle.Render("length"), faintStyle.Render("--:--.---"))
 	}
 	return fmt.Sprintf(" %s %s  %s %s  %s %s",
 		faintStyle.Render("start"), valueStyle.Render(startStr),
 		faintStyle.Render("end"), inputView,
-		faintStyle.Render("length"), faintStyle.Render("--:--"))
+		faintStyle.Render("length"), faintStyle.Render("--:--.---"))
 }
 
 func (m Model) renderFormatBadge() string {

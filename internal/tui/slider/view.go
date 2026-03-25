@@ -18,18 +18,19 @@ func (m Model) View() string {
 		leftW := m.leftPaneWidth()
 		rightW := m.rightPaneWidth()
 		left := m.renderLeftPane(leftW)
-		right := m.renderRightPane(rightW)
-		body := m.renderBorderedLayout(left, leftW, right, rightW)
-		return body + "\n" + helpBar + "\n"
+		leftHeight := strings.Count(left, "\n") + 1
+		right := m.renderRightPaneWithHeight(rightW, leftHeight)
+		body := m.renderBorderedLayout(left, leftW, right, rightW, helpBar)
+		return body + "\n"
 	}
 
 	// Single-column fallback
 	left := m.renderLeftPane(m.width - 2)
-	body := m.renderSingleColumnLayout(left, m.width-2)
-	return body + "\n" + helpBar + "\n"
+	body := m.renderSingleColumnLayout(left, m.width-2, helpBar)
+	return body + "\n"
 }
 
-func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW int) string {
+func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW int, helpBar string) string {
 	leftLines := strings.Split(left, "\n")
 	rightLines := strings.Split(right, "\n")
 
@@ -68,7 +69,6 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 		b.WriteString(borderStyle.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
 	}
 
-	// Bottom border: ╰─────────────────────────┴──────────────────────╯
 	// Search input sits above the bottom border if active
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
@@ -76,12 +76,23 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
 	}
 
-	b.WriteString(borderStyle.Render("╰") + borderStyle.Render(strings.Repeat("─", leftW)) + borderStyle.Render("┴") + divColor.Render(strings.Repeat("─", rightW)) + divColor.Render("╯"))
+	// Help bar inside the box, spanning full width
+	innerW := leftW + rightW + 1 // +1 for the middle divider column
+	helpLines := strings.Split(helpBar, "\n")
+	// Separator before help
+	b.WriteString(borderStyle.Render("├") + borderStyle.Render(strings.Repeat("─", leftW)) + borderStyle.Render("┴") + borderStyle.Render(strings.Repeat("─", rightW)) + borderStyle.Render("┤") + "\n")
+	helpPad := lipgloss.NewStyle().Width(innerW)
+	for _, hl := range helpLines {
+		b.WriteString(borderStyle.Render("│") + helpPad.Render(hl) + borderStyle.Render("│") + "\n")
+	}
+
+	// Bottom border
+	b.WriteString(borderStyle.Render("╰") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("╯"))
 
 	return b.String()
 }
 
-func (m Model) renderSingleColumnLayout(content string, innerW int) string {
+func (m Model) renderSingleColumnLayout(content string, innerW int, helpBar string) string {
 	lines := strings.Split(content, "\n")
 
 	var b strings.Builder
@@ -99,6 +110,14 @@ func (m Model) renderSingleColumnLayout(content string, innerW int) string {
 		searchLine := m.renderSearchInput()
 		searchPad := max(innerW-lipgloss.Width(searchLine), 0)
 		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
+	}
+
+	// Help bar inside the box
+	helpLines := strings.Split(helpBar, "\n")
+	b.WriteString(borderStyle.Render("├") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("┤") + "\n")
+	innerPadHelp := lipgloss.NewStyle().Width(innerW)
+	for _, hl := range helpLines {
+		b.WriteString(borderStyle.Render("│") + innerPadHelp.Render(hl) + borderStyle.Render("│") + "\n")
 	}
 
 	b.WriteString(borderStyle.Render("╰") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("╯"))
