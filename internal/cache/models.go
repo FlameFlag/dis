@@ -16,12 +16,6 @@ type TranscriptCache struct {
 	CreatedAt int64  `gorm:"not null"`
 }
 
-type SilenceCache struct {
-	URL       string `gorm:"primaryKey"`
-	Data      []byte `gorm:"not null"`
-	CreatedAt int64  `gorm:"not null"`
-}
-
 type SponsorBlockCache struct {
 	VideoID   string `gorm:"primaryKey"`
 	Data      []byte `gorm:"not null"`

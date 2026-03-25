@@ -2,9 +2,8 @@ package slider
 
 import "strings"
 
-// renderIntegratedSlider renders the slider track with silence brackets.
-// Returns two rows: top = track chars, bottom = silence brackets.
-func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
+// renderIntegratedSlider renders the slider track.
+func (m Model) renderIntegratedSlider(width int) string {
 	startIdx := int(m.animStartPos / m.duration * float64(width))
 	endIdx := int(m.animEndPos / m.duration * float64(width))
 	if startIdx < 0 {
@@ -14,96 +13,38 @@ func (m Model) renderIntegratedSlider(width int) (topRow, bottomRow string) {
 		endIdx = width - 1
 	}
 
-	// Pre-pass: find silence run boundaries for bracket markers.
-	silenceStart := make(map[int]bool, width)
-	silenceEnd := make(map[int]bool, width)
-	prevSilence := false
-	for i := range width {
-		s := m.isSilenceAt(float64(i) / float64(width) * m.duration)
-		if s && !prevSilence {
-			silenceStart[i] = true
-		}
-		if !s && prevSilence {
-			silenceEnd[i-1] = true
-		}
-		prevSilence = s
-	}
-	if prevSilence {
-		silenceEnd[width-1] = true
-	}
-
-	var top, bot strings.Builder
+	var out strings.Builder
 
 	for i := range width {
-		silence := m.isSilenceAt(float64(i) / float64(width) * m.duration)
-
-		// Handle positions - same vertical bar in both rows.
 		if i == startIdx {
 			if m.adjustingStart {
-				top.WriteString(handleActiveStyle.Render("┃"))
-				bot.WriteString(handleActiveStyle.Render("┃"))
+				out.WriteString(handleActiveStyle.Render("┃"))
 			} else {
-				top.WriteString(handleInactiveStyle.Render("│"))
-				bot.WriteString(handleInactiveStyle.Render("│"))
+				out.WriteString(handleInactiveStyle.Render("│"))
 			}
 			continue
 		}
 		if i == endIdx {
 			if !m.adjustingStart {
-				top.WriteString(handleActiveStyle.Render("┃"))
-				bot.WriteString(handleActiveStyle.Render("┃"))
+				out.WriteString(handleActiveStyle.Render("┃"))
 			} else {
-				top.WriteString(handleInactiveStyle.Render("│"))
-				bot.WriteString(handleInactiveStyle.Render("│"))
+				out.WriteString(handleInactiveStyle.Render("│"))
 			}
 			continue
 		}
 
-		inRange := i > startIdx && i < endIdx
-
-		if silence {
-			// Top row: blank space in silence style.
-			if inRange {
-				top.WriteString(silenceInStyle.Render(" "))
-			} else {
-				top.WriteString(silenceOutStyle.Render(" "))
-			}
-			// Bottom row: bracket markers.
-			var bracket string
-			switch {
-			case silenceStart[i] && silenceEnd[i]:
-				bracket = "⌊"
-			case silenceStart[i]:
-				bracket = "⌊"
-			case silenceEnd[i]:
-				bracket = "⌋"
-			default:
-				bracket = "╌"
-			}
-			if inRange {
-				bot.WriteString(silenceInStyle.Render(bracket))
-			} else {
-				bot.WriteString(silenceOutStyle.Render(bracket))
-			}
-			continue
-		}
-
-		// Simple track chars in both rows.
-		if inRange {
-			top.WriteString(selectedTrack.Render("━"))
-			bot.WriteString(selectedTrack.Render("━"))
+		if i > startIdx && i < endIdx {
+			out.WriteString(selectedTrack.Render("━"))
 		} else {
-			top.WriteString(unselectedTrack.Render("─"))
-			bot.WriteString(unselectedTrack.Render("─"))
+			out.WriteString(unselectedTrack.Render("─"))
 		}
 	}
 
-	return top.String(), bot.String()
+	return out.String()
 }
 
 // renderSliderWithSegments renders the slider showing multiple selected segments.
-// Returns two rows: top = track chars, bottom = silence brackets.
-func (m Model) renderSliderWithSegments(width int) (topRow, bottomRow string) {
+func (m Model) renderSliderWithSegments(width int) string {
 	segments := m.selectedSegments()
 	if len(segments) == 0 {
 		return m.renderIntegratedSlider(width)
@@ -136,65 +77,17 @@ func (m Model) renderSliderWithSegments(width int) (topRow, bottomRow string) {
 		}
 	}
 
-	// Pre-pass: silence run boundaries.
-	silenceStart := make(map[int]bool, width)
-	silenceEnd := make(map[int]bool, width)
-	prevSilence := false
-	for i := range width {
-		s := m.isSilenceAt(float64(i) / float64(width) * m.duration)
-		if s && !prevSilence {
-			silenceStart[i] = true
-		}
-		if !s && prevSilence {
-			silenceEnd[i-1] = true
-		}
-		prevSilence = s
-	}
-	if prevSilence {
-		silenceEnd[width-1] = true
-	}
-
-	var top, bot strings.Builder
+	var out strings.Builder
 	for i := range width {
 		if i == cursorCol {
-			top.WriteString(handleActiveStyle.Render("┃"))
-			bot.WriteString(handleActiveStyle.Render("┃"))
+			out.WriteString(handleActiveStyle.Render("┃"))
 			continue
 		}
-		silence := m.isSilenceAt(float64(i) / float64(width) * m.duration)
-		selected := cols[i] == 's'
-
-		if silence {
-			// Top: blank.
-			if selected {
-				top.WriteString(silenceInStyle.Render(" "))
-			} else {
-				top.WriteString(silenceOutStyle.Render(" "))
-			}
-			// Bottom: bracket markers.
-			var bracket string
-			switch {
-			case silenceStart[i]:
-				bracket = "⌊"
-			case silenceEnd[i]:
-				bracket = "⌋"
-			default:
-				bracket = "╌"
-			}
-			if selected {
-				bot.WriteString(silenceInStyle.Render(bracket))
-			} else {
-				bot.WriteString(silenceOutStyle.Render(bracket))
-			}
+		if cols[i] == 's' {
+			out.WriteString(selectedTrack.Render("━"))
 		} else {
-			if selected {
-				top.WriteString(selectedTrack.Render("━"))
-				bot.WriteString(selectedTrack.Render("━"))
-			} else {
-				top.WriteString(unselectedTrack.Render("─"))
-				bot.WriteString(unselectedTrack.Render("─"))
-			}
+			out.WriteString(unselectedTrack.Render("─"))
 		}
 	}
-	return top.String(), bot.String()
+	return out.String()
 }

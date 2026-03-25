@@ -152,7 +152,6 @@ type sliderData struct {
 	duration     float64
 	markers      []slider.ChapterMarker
 	transcriptCh <-chan subtitle.Transcript
-	silenceCh    <-chan []subtitle.SilenceInterval
 	sbCh         <-chan *storyboard.StoryboardData
 	sbSegmentsCh <-chan []sponsorblock.Segment
 }
@@ -221,24 +220,6 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 		return nil
 	})
 
-	if len(links) > 0 {
-		silCh := make(chan []subtitle.SilenceInterval, 1)
-		d.silenceCh = silCh
-		g.Go(func() error {
-			defer close(silCh)
-			sil, err := subtitle.DetectSilence(gctx, links[0])
-			if err != nil {
-				log.Debug("Silence detection failed", "err", err)
-				return nil
-			}
-			if len(sil) > 0 {
-				silCh <- sil
-			}
-			return nil
-		})
-
-	}
-
 	if info != nil {
 		d.sbCh = storyboard.StartFetch(ctx, info)
 	}
@@ -249,7 +230,7 @@ func fetchSliderData(ctx context.Context, links, localFiles []string) *sliderDat
 }
 
 func runSlider(data *sliderData, gifEnabled bool) (*slider.TrimResult, error) {
-	return slider.Run(data.duration, data.transcriptCh, data.silenceCh, data.sbCh, data.sbSegmentsCh, gifEnabled, data.markers...)
+	return slider.Run(data.duration, data.transcriptCh, data.sbCh, data.sbSegmentsCh, gifEnabled, data.markers...)
 }
 
 func probeDuration(ctx context.Context, links, localFiles []string) (float64, *ytdlp.ExtractedInfo) {

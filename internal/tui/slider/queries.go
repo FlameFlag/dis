@@ -49,15 +49,6 @@ func (m Model) sponsorCategoryAt(seconds float64) sponsorblock.Category {
 	return ""
 }
 
-func (m Model) isSilenceAt(seconds float64) bool {
-	for _, si := range m.silenceIntervals {
-		if seconds >= si.Start && seconds <= si.End {
-			return true
-		}
-	}
-	return false
-}
-
 func (m Model) activePos() float64 {
 	if m.adjustingStart {
 		return m.startPos

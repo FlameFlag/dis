@@ -72,10 +72,6 @@ type Model struct {
 	searchResults []int // matching indices (cue or word depending on mode)
 	searchIndex   int   // current match position
 
-	// Silence detection (async)
-	silenceIntervals []subtitle.SilenceInterval
-	silenceCh        <-chan []subtitle.SilenceInterval
-
 	// Storyboard (async)
 	storyboard   *storyboard.StoryboardData
 	storyboardCh <-chan *storyboard.StoryboardData
@@ -116,11 +112,6 @@ type trimRange struct {
 	end   float64
 }
 
-// SilenceDetectedMsg is sent when background silence detection completes.
-type SilenceDetectedMsg struct {
-	Intervals []subtitle.SilenceInterval
-}
-
 // StoryboardReadyMsg is sent when background storyboard fetch completes.
 type StoryboardReadyMsg struct {
 	Data *storyboard.StoryboardData
@@ -150,7 +141,7 @@ var brailleSpinner = spinner.Spinner{
 }
 
 func (m Model) isLoading() bool {
-	return m.silenceCh != nil || m.storyboardCh != nil ||
+	return m.storyboardCh != nil ||
 		m.transcriptCh != nil || m.sponsorSegsCh != nil
 }
 
@@ -163,7 +154,7 @@ func (m *Model) triggerAnim() tea.Cmd {
 }
 
 // New creates a new trim slider model.
-func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
+func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
 	_, gifErr := exec.LookPath("gifski")
 	si := textinput.New()
 	si.Prompt = ""
@@ -180,7 +171,6 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-
 		adjustingStart:  true,
 		chapters:        chapters,
 		transcriptCh:    transcriptCh,
-		silenceCh:       silenceCh,
 		storyboardCh:    storyboardCh,
 		sponsorSegsCh:   sponsorSegsCh,
 		viewportLocked:  true,
@@ -196,17 +186,6 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-
 
 func (m Model) Init() tea.Cmd {
 	var cmds []tea.Cmd
-
-	if m.silenceCh != nil {
-		ch := m.silenceCh
-		cmds = append(cmds, func() tea.Msg {
-			intervals, ok := <-ch
-			if !ok || len(intervals) == 0 {
-				return SilenceDetectedMsg{}
-			}
-			return SilenceDetectedMsg{Intervals: intervals}
-		})
-	}
 
 	if m.storyboardCh != nil {
 		ch := m.storyboardCh
@@ -253,10 +232,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		return m, nil
-	case SilenceDetectedMsg:
-		m.silenceIntervals = msg.Intervals
-		m.silenceCh = nil
 		return m, nil
 	case StoryboardReadyMsg:
 		m.storyboard = msg.Data
@@ -368,8 +343,8 @@ func (m Model) Result() *TrimResult {
 }
 
 // Run launches the trim slider as a full-screen BubbleTea program.
-func Run(duration float64, transcriptCh <-chan subtitle.Transcript, silenceCh <-chan []subtitle.SilenceInterval, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
-	m := New(duration, transcriptCh, silenceCh, storyboardCh, sponsorSegsCh, gifEnabled, chapters...)
+func Run(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
+	m := New(duration, transcriptCh, storyboardCh, sponsorSegsCh, gifEnabled, chapters...)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()

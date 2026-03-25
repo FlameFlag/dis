@@ -25,15 +25,11 @@ func (m Model) renderLeftPane(width int) string {
 	lines = append(lines, " "+labels)
 	lines = append(lines, " "+ticks)
 
-	// Slider track - two rows: track top, silence brackets bottom
+	// Slider track
 	if m.isSelectMode() && m.hasWordSelection() {
-		top, bot := m.renderSliderWithSegments(w)
-		lines = append(lines, " "+top)
-		lines = append(lines, " "+bot)
+		lines = append(lines, " "+m.renderSliderWithSegments(w))
 	} else {
-		top, bot := m.renderIntegratedSlider(w)
-		lines = append(lines, " "+top)
-		lines = append(lines, " "+bot)
+		lines = append(lines, " "+m.renderIntegratedSlider(w))
 	}
 
 	// SponsorBlock segments row (no legend)

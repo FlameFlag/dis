@@ -93,9 +93,6 @@ func (m Model) renderLoadingStatus() string {
 	}
 	spinner := m.loadingSpinner.View()
 	var items []string
-	if m.silenceCh != nil {
-		items = append(items, "silence")
-	}
 	if m.storyboardCh != nil {
 		items = append(items, "storyboard")
 	}

@@ -33,8 +33,6 @@ var fadeGradient = []lipgloss.Style{
 var (
 	selectedTrack       = lipgloss.NewStyle().Foreground(tui.ColorPeach)
 	unselectedTrack     = lipgloss.NewStyle().Foreground(tui.ColorSurface1)
-	silenceInStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#8c7060"))
-	silenceOutStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#5b4f49"))
 	handleActiveStyle   = lipgloss.NewStyle().Foreground(tui.ColorText).Bold(true)
 	handleInactiveStyle = lipgloss.NewStyle().Foreground(tui.ColorOverlay0)
 )
