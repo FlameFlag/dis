@@ -46,9 +46,9 @@ type Model struct {
 	startPos       float64
 	endPos         float64
 	adjustingStart bool
-	mode      sliderMode
-	timeInput textinput.Model
-	confirmed bool
+	mode           sliderMode
+	timeInput      textinput.Model
+	confirmed      bool
 	cancelled      bool
 	width          int
 	chapters       []ChapterMarker

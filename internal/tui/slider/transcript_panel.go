@@ -55,10 +55,7 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 	textWidth := max(width-10, 10) // timestamp + padding
 
 	// Count how many cues are below the active one for fade calculation
-	cuesBelowActive := endCue - activeCue - 1
-	if cuesBelowActive < 1 {
-		cuesBelowActive = 1
-	}
+	cuesBelowActive := max(endCue-activeCue-1, 1)
 
 	for i := startCue; i < endCue; i++ {
 		cue := m.transcript[i]

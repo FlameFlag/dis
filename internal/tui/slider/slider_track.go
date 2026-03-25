@@ -71,10 +71,7 @@ func (m Model) renderSelectedCol(col, startIdx, endIdx int, sponsorColor []lipgl
 
 // renderStartLabel renders the start-handle timestamp ABOVE the track.
 func (m Model) renderStartLabel(width int) string {
-	startIdx := int(m.animStartPos / m.duration * float64(width))
-	if startIdx < 0 {
-		startIdx = 0
-	}
+	startIdx := max(int(m.animStartPos/m.duration*float64(width)), 0)
 	if startIdx >= width {
 		startIdx = width - 1
 	}
@@ -96,10 +93,7 @@ func (m Model) renderStartLabel(width int) string {
 
 // renderEndLabel renders the end-handle timestamp BELOW the track.
 func (m Model) renderEndLabel(width int) string {
-	endIdx := int(m.animEndPos / m.duration * float64(width))
-	if endIdx < 0 {
-		endIdx = 0
-	}
+	endIdx := max(int(m.animEndPos/m.duration*float64(width)), 0)
 	if endIdx >= width {
 		endIdx = width - 1
 	}

@@ -7,10 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m Model) renderLeftPane(width int) string {
-	return m.renderLeftPaneWithHeight(width, 0)
-}
-
 func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 	var lines []string
 	w := max(width-2, MinSliderWidth) // inner padding
@@ -166,19 +162,20 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 
 	var tickBuf strings.Builder
 	for i := range width {
-		if i == startIdx {
+		switch i {
+		case startIdx:
 			if m.adjustingStart {
 				tickBuf.WriteString(accentBold.Render("▼"))
 			} else {
 				tickBuf.WriteString(faintStyle.Render("▼"))
 			}
-		} else if i == endIdx {
+		case endIdx:
 			if !m.adjustingStart {
 				tickBuf.WriteString(accentBold.Render("▼"))
 			} else {
 				tickBuf.WriteString(faintStyle.Render("▼"))
 			}
-		} else {
+		default:
 			tickBuf.WriteString(dimStyle.Render("┈"))
 		}
 	}
