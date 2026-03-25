@@ -24,19 +24,26 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 	// Blank line
 	lines = append(lines, "")
 
-	// Time ruler
+	// Time ruler with handle markers (#4)
 	labels, ticks := m.renderTimeRuler(w)
 	lines = append(lines, " "+labels)
 	lines = append(lines, " "+ticks)
 
-	// Slider track
+	// Slider track with inline timestamps (#8) and all enhancements
 	if m.isSelectMode() && m.hasWordSelection() {
 		lines = append(lines, " "+m.renderSliderWithSegments(w))
 	} else {
+		// Start timestamp above track (#8)
+		lines = append(lines, " "+m.renderStartLabel(w))
+
+		// Slider track with gradient edges (#2) and sponsor colors (#7)
 		lines = append(lines, " "+m.renderIntegratedSlider(w))
+
+		// End timestamp below track (#8)
+		lines = append(lines, " "+m.renderEndLabel(w))
 	}
 
-	// SponsorBlock segments row (no legend)
+	// SponsorBlock segments row (kept for highlights ★ and as legend)
 	if len(m.sponsorSegments) > 0 {
 		lines = append(lines, " "+m.renderSponsorSegments(w))
 	}
@@ -146,6 +153,35 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 	}
 
 	labels = faintStyle.Render(string(labelBuf))
-	ticks = dimStyle.Render(strings.Repeat("┈", width))
+
+	// Build tick row with handle position markers (#4: playhead indicator)
+	startIdx := int(m.animStartPos / m.duration * float64(width))
+	endIdx := int(m.animEndPos / m.duration * float64(width))
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if endIdx >= width {
+		endIdx = width - 1
+	}
+
+	var tickBuf strings.Builder
+	for i := range width {
+		if i == startIdx {
+			if m.adjustingStart {
+				tickBuf.WriteString(accentBold.Render("▼"))
+			} else {
+				tickBuf.WriteString(faintStyle.Render("▼"))
+			}
+		} else if i == endIdx {
+			if !m.adjustingStart {
+				tickBuf.WriteString(accentBold.Render("▼"))
+			} else {
+				tickBuf.WriteString(faintStyle.Render("▼"))
+			}
+		} else {
+			tickBuf.WriteString(dimStyle.Render("┈"))
+		}
+	}
+	ticks = tickBuf.String()
 	return
 }

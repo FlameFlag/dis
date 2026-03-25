@@ -1,8 +1,14 @@
 package slider
 
-import "strings"
+import (
+	"dis/internal/util"
+	"strings"
 
-// renderIntegratedSlider renders the slider track.
+	"github.com/charmbracelet/lipgloss"
+)
+
+// renderIntegratedSlider renders the slider track with gradient edges on the
+// selected region and sponsor-block colors baked directly into the track.
 func (m Model) renderIntegratedSlider(width int) string {
 	startIdx := int(m.animStartPos / m.duration * float64(width))
 	endIdx := int(m.animEndPos / m.duration * float64(width))
@@ -13,34 +19,130 @@ func (m Model) renderIntegratedSlider(width int) string {
 		endIdx = width - 1
 	}
 
+	// Build sponsor color map for the track (#7: colored region highlighting)
+	sponsorColor := m.sponsorColorMap(width)
+
 	var out strings.Builder
 
 	for i := range width {
+		// Handles (#3: chunkier handles)
 		if i == startIdx {
 			if m.adjustingStart {
-				out.WriteString(handleActiveStyle.Render("┃"))
+				out.WriteString(handleActiveStyle.Render("▌"))
 			} else {
-				out.WriteString(handleInactiveStyle.Render("│"))
+				out.WriteString(handleInactiveStyle.Render("▌"))
 			}
 			continue
 		}
 		if i == endIdx {
 			if !m.adjustingStart {
-				out.WriteString(handleActiveStyle.Render("┃"))
+				out.WriteString(handleActiveStyle.Render("▐"))
 			} else {
-				out.WriteString(handleInactiveStyle.Render("│"))
+				out.WriteString(handleInactiveStyle.Render("▐"))
 			}
 			continue
 		}
 
 		if i > startIdx && i < endIdx {
-			out.WriteString(selectedTrack.Render("━"))
+			// #2: gradient edges + #7: sponsor colors
+			out.WriteString(m.renderSelectedCol(i, startIdx, endIdx, sponsorColor))
 		} else {
 			out.WriteString(unselectedTrack.Render("─"))
 		}
 	}
 
 	return out.String()
+}
+
+// renderSelectedCol renders a single selected-region column, applying
+// a fade-in/fade-out gradient at the edges and sponsor-block color overrides.
+func (m Model) renderSelectedCol(col, startIdx, endIdx int, sponsorColor []lipgloss.Color) string {
+	// Check for sponsor color override (#7)
+	if sponsorColor[col] != "" {
+		return lipgloss.NewStyle().Foreground(sponsorColor[col]).Render("━")
+	}
+
+	distFromEdge := min(col-startIdx, endIdx-col)
+	if distFromEdge <= len(trackGradient) {
+		return trackGradient[max(distFromEdge-1, 0)].Render("━")
+	}
+	return selectedTrack.Render("━")
+}
+
+// renderStartLabel renders the start-handle timestamp ABOVE the track.
+func (m Model) renderStartLabel(width int) string {
+	startIdx := int(m.animStartPos / m.duration * float64(width))
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if startIdx >= width {
+		startIdx = width - 1
+	}
+
+	label := util.FormatDurationMillis(m.startPos)
+	pos := startIdx - len(label)/2
+	pos = max(pos, 0)
+	if pos+len(label) > width {
+		pos = width - len(label)
+	}
+
+	style := faintStyle
+	if m.adjustingStart {
+		style = accentBold
+	}
+
+	return strings.Repeat(" ", pos) + style.Render(label)
+}
+
+// renderEndLabel renders the end-handle timestamp BELOW the track.
+func (m Model) renderEndLabel(width int) string {
+	endIdx := int(m.animEndPos / m.duration * float64(width))
+	if endIdx < 0 {
+		endIdx = 0
+	}
+	if endIdx >= width {
+		endIdx = width - 1
+	}
+
+	label := util.FormatDurationMillis(m.endPos)
+	pos := endIdx - len(label)/2
+	pos = max(pos, 0)
+	if pos+len(label) > width {
+		pos = width - len(label)
+	}
+
+	style := faintStyle
+	if !m.adjustingStart {
+		style = accentBold
+	}
+
+	return strings.Repeat(" ", pos) + style.Render(label)
+}
+
+// sponsorColorMap returns per-column sponsor colors for the track.
+func (m Model) sponsorColorMap(width int) []lipgloss.Color {
+	colors := make([]lipgloss.Color, width)
+	if m.duration <= 0 {
+		return colors
+	}
+	for _, seg := range m.sponsorSegments {
+		sc, ok := sponsorCategories[seg.Category]
+		if !ok {
+			continue
+		}
+		si := int(seg.Start / m.duration * float64(width))
+		ei := int(seg.End / m.duration * float64(width))
+		if si < 0 {
+			si = 0
+		}
+		if ei >= width {
+			ei = width - 1
+		}
+		for i := si; i <= ei; i++ {
+			colors[i] = sc.HexColor
+		}
+	}
+	return colors
 }
 
 // renderSliderWithSegments renders the slider showing multiple selected segments.
@@ -80,7 +182,7 @@ func (m Model) renderSliderWithSegments(width int) string {
 	var out strings.Builder
 	for i := range width {
 		if i == cursorCol {
-			out.WriteString(handleActiveStyle.Render("┃"))
+			out.WriteString(handleActiveStyle.Render("▌"))
 			continue
 		}
 		if cols[i] == 's' {
