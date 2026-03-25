@@ -22,12 +22,16 @@ func FormatDurationShort(seconds float64) string {
 }
 
 // FormatDurationMillis formats seconds as "M:SS.mmm" with millisecond precision.
+// The ".mmm" suffix is omitted when milliseconds are zero.
 func FormatDurationMillis(seconds float64) string {
 	seconds = math.Abs(seconds)
 	d := time.Duration(seconds * float64(time.Second))
 	mins := int(d.Minutes())
 	secs := int(d.Seconds()) % 60
 	ms := int(d.Milliseconds()) % 1000
+	if ms == 0 {
+		return fmt.Sprintf("%d:%02d", mins, secs)
+	}
 	return fmt.Sprintf("%d:%02d.%03d", mins, secs, ms)
 }
 
