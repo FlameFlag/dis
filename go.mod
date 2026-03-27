@@ -14,7 +14,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v1.0.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/lrstanley/go-ytdlp v1.3.4
+	github.com/lrstanley/go-ytdlp v1.3.5
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -22,20 +22,20 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/glebarez/sqlite v1.11.0
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/image v0.37.0
+	golang.org/x/image v0.38.0
 	golang.org/x/sync v0.20.0
 	gorm.io/gorm v1.31.1
 )
 
 require (
-	github.com/ProtonMail/go-crypto v1.4.0 // indirect
+	github.com/ProtonMail/go-crypto v1.4.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260309091805-903bfd0cf188 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260316091819-b93f6a3b8502 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
-	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260311145557-c83711a11ffa // indirect
+	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260323091123-df7b1bcffcca // indirect
 	github.com/charmbracelet/x/exp/strings v0.1.0 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
@@ -74,5 +74,5 @@ require (
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.1 // indirect
+	modernc.org/sqlite v1.47.0 // indirect
 )
