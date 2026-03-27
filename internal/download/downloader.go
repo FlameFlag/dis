@@ -205,10 +205,9 @@ func DownloadVideo(ctx context.Context, rawURL string, s *config.Settings, trimS
 	}
 
 	if trimSettings != nil {
-		// Trimmed downloads use a raw yt-dlp process instead of go-ytdlp.
-		// go-ytdlp can't report progress during --force-keyframes-at-cuts
-		// because yt-dlp swallows ffmpeg's stderr internally.
-		if err := downloadTrimmedRaw(ctx, rawURL, s, trimSettings, tempDir, onProgress); err != nil {
+		// Trimmed downloads use StderrFunc to capture ffmpeg's time= progress
+		// during --force-keyframes-at-cuts re-encoding.
+		if err := downloadTrimmed(ctx, rawURL, s, trimSettings, tempDir, onProgress); err != nil {
 			return nil, fmt.Errorf("download failed: %w", err)
 		}
 	} else {
