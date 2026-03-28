@@ -16,7 +16,6 @@ var (
 	faintStyle    = lipgloss.NewStyle().Foreground(tui.ColorOverlay0)
 	boldStyle     = lipgloss.NewStyle().Bold(true)
 	reverseStyle  = lipgloss.NewStyle().Reverse(true)
-	helpKeyStyle  = lipgloss.NewStyle().Foreground(tui.ColorText).Bold(true)
 	helpPillStyle = lipgloss.NewStyle().Background(tui.ColorSurface1).Foreground(tui.ColorText)
 	borderStyle   = lipgloss.NewStyle().Foreground(tui.ColorSurface2)
 	warnStyle     = lipgloss.NewStyle().Foreground(tui.ColorRed)
