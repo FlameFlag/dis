@@ -24,6 +24,7 @@ type keyMap struct {
 	PrevMatch        key.Binding
 	TranscriptSelect key.Binding
 	ParagraphSelect  key.Binding
+	SelectTrimRange  key.Binding
 	Deselect         key.Binding
 
 	// Viewport scrolling
@@ -63,6 +64,7 @@ var keys = keyMap{
 	PrevMatch:        key.NewBinding(key.WithKeys("N")),
 	TranscriptSelect: key.NewBinding(key.WithKeys("t")),
 	ParagraphSelect:  key.NewBinding(key.WithKeys("p")),
+	SelectTrimRange:  key.NewBinding(key.WithKeys("a")),
 	Deselect:         key.NewBinding(key.WithKeys("d")),
 
 	PageUp:   key.NewBinding(key.WithKeys("pgup")),

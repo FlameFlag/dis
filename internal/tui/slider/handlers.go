@@ -122,6 +122,15 @@ func (m Model) handleSelectMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.selectAnchor = -1
 		return m, nil
 
+	case key.Matches(msg, keys.SelectTrimRange):
+		if len(m.splits) > 0 {
+			m.selectWordsInRanges(m.splits)
+		} else {
+			m.selectWordsInRanges([]trimRange{{start: m.startPos, end: m.endPos}})
+		}
+		m.selectAnchor = -1
+		return m, nil
+
 	case key.Matches(msg, keys.Deselect):
 		for i := range m.selected {
 			m.selected[i] = false

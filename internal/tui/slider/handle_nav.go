@@ -108,13 +108,6 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.transcript != nil && len(m.words) > 0 {
 			m.mode = modeSelect
 			m.cursor = m.nearestWordIndex(m.activePos())
-			if !m.hasWordSelection() {
-				if len(m.splits) > 0 {
-					m.selectWordsInRanges(m.splits)
-				} else {
-					m.selectWordsInRanges([]trimRange{{start: m.startPos, end: m.endPos}})
-				}
-			}
 		}
 		return m, nil
 
