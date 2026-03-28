@@ -77,20 +77,6 @@ func fetchMetadataFromYTDLP(ctx context.Context, rawURL string) (*ytdlp.Extracte
 	return info, nil
 }
 
-// FetchDuration fetches the duration of a video at the given URL using yt-dlp.
-func FetchDuration(ctx context.Context, rawURL string) (float64, error) {
-	info, err := FetchMetadata(ctx, rawURL)
-	if err != nil {
-		return 0, err
-	}
-
-	if info.Duration == nil || *info.Duration == 0 {
-		return 0, fmt.Errorf("video has no duration information")
-	}
-
-	return *info.Duration, nil
-}
-
 // ExtractChapters converts yt-dlp chapter metadata to config.Chapter slice.
 func ExtractChapters(info *ytdlp.ExtractedInfo) []config.Chapter {
 	if len(info.Chapters) == 0 {

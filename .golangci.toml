@@ -12,7 +12,7 @@ module-path = "github.com/asciimoo/hister"
 local-prefixes = ["github.com/asciimoo"]
 
 [linters]
-enable = ["modernize"]
+enable = ["modernize", "staticcheck", "ineffassign", "unused"]
 
 [linters.exclusions]
 paths = ["node_modules"]

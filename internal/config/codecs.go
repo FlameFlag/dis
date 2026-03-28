@@ -97,8 +97,6 @@ func (c Codec) cfg() codecConfig {
 	return codecConfigs[CodecH264]
 }
 
-// String returns the primary FFmpeg codec name (implements fmt.Stringer).
-func (c Codec) String() string          { return c.FFmpegCodecName() }
 func (c Codec) FFmpegCodecName() string { return c.cfg().FFmpegName }
 func (c Codec) IsWebM() bool            { return c.cfg().IsWebM }
 
