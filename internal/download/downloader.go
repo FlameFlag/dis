@@ -4,12 +4,14 @@ import (
 	"context"
 	"dis/internal/cache"
 	"dis/internal/config"
+	"dis/internal/convert"
 	"dis/internal/tui"
 	"dis/internal/util"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -159,12 +161,31 @@ func DownloadChaptersCombined(ctx context.Context, rawURL string, s *config.Sett
 	}
 	dl.ForceKeyframesAtCuts()
 
-	if onProgress != nil {
-		p := newDownloadProgress(onProgress)
-		dl.ProgressFunc(200*time.Millisecond, p.handle)
+	// Compute total duration of selected chapters for progress tracking.
+	var totalDuration float64
+	for _, ch := range chapters {
+		totalDuration += ch.Duration()
 	}
 
-	_, err = dl.Run(ctx, rawURL)
+	var stderrFn func(string)
+	if onProgress != nil && totalDuration > 0 {
+		var mu sync.Mutex
+		var maxPct float64
+		stderrFn = func(line string) {
+			if t := convert.ParseFFmpegTime(line); t > 0 {
+				pct := min(t/totalDuration*100, 100)
+				mu.Lock()
+				if pct > maxPct {
+					maxPct = pct
+				}
+				p := maxPct
+				mu.Unlock()
+				onProgress(tui.ProgressInfo{Percent: p})
+			}
+		}
+	}
+
+	_, err = runInProcessGroup(ctx, dl, rawURL, stderrFn)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
 	}

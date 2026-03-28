@@ -3,12 +3,14 @@ package convert
 import (
 	"context"
 	"dis/internal/config"
+	"dis/internal/procgroup"
 	"dis/internal/tui"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/log"
 )
@@ -68,8 +70,14 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 
 	log.Info("Encoding GIF with gifski...")
 	cmd := exec.CommandContext(ctx, "gifski", gifskiArgs...)
+	procgroup.Setup(cmd, 5*time.Second)
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("gifski start failed: %w", err)
+	}
+	procgroup.Track(cmd)
+	defer procgroup.Untrack(cmd)
+	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("gifski encoding failed: %w", err)
 	}
 

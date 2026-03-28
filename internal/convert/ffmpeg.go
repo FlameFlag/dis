@@ -3,10 +3,12 @@ package convert
 import (
 	"bufio"
 	"context"
+	"dis/internal/procgroup"
 	"fmt"
 	"os/exec"
 	"slices"
 	"strings"
+	"time"
 )
 
 // ProgressFunc is called with progress percentage (0-100).
@@ -18,6 +20,7 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 	fullArgs := slices.Concat([]string{"-y"}, args)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
+	procgroup.Setup(cmd, 5*time.Second)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -27,6 +30,8 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
+	procgroup.Track(cmd)
+	defer procgroup.Untrack(cmd)
 
 	scanner := bufio.NewScanner(stderr)
 	scanner.Split(ScanFFmpegLines)

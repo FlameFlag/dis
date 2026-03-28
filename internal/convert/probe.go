@@ -2,10 +2,12 @@ package convert
 
 import (
 	"context"
+	"dis/internal/procgroup"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/log"
 )
@@ -56,6 +58,7 @@ func ProbeMedia(ctx context.Context, path string) (*MediaInfo, error) {
 		"-show_streams",
 		path,
 	)
+	procgroup.Setup(cmd, 3*time.Second)
 
 	out, err := cmd.Output()
 	if err != nil {
