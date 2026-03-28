@@ -158,19 +158,19 @@ func checkSkipConversion(s *config.Settings, trimSettings *config.TrimSettings) 
 		return true
 	}
 
-	var skip bool
+	var convert bool
 	err := huh.NewConfirm().
-		Title("Skip conversion?").
-		Description("The file will be copied as-is without re-encoding.").
-		Value(&skip).
+		Title("Convert this file?").
+		Description("Re-encode with your current settings. Choose No to copy the file as-is.").
+		Value(&convert).
 		Run()
 	if err != nil {
 		return false
 	}
 
-	if skip && trimSettings != nil {
+	if !convert && trimSettings != nil {
 		log.Warn("Skipping conversion will also skip trimming for local files")
 	}
 
-	return skip
+	return !convert
 }
