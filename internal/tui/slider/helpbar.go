@@ -6,90 +6,106 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func helpEntry(key, desc string) string {
-	return helpKeyStyle.Render(key) + " " + faintStyle.Render(desc)
-}
-
-// alignColumns pads entries at each column position so separators align vertically.
-func alignColumns(row1, row2 []string) {
-	n := min(len(row1), len(row2))
-	for i := range n {
-		w1 := lipgloss.Width(row1[i])
-		w2 := lipgloss.Width(row2[i])
-		colW := max(w1, w2)
-		if w1 < colW {
-			row1[i] += strings.Repeat(" ", colW-w1)
-		}
-		if w2 < colW {
-			row2[i] += strings.Repeat(" ", colW-w2)
-		}
+func helpPill(key, desc string) string {
+	if strings.HasPrefix(key, "[") && strings.HasSuffix(key, "]") {
+		return helpPillStyle.Render(desc + " " + key)
 	}
+	return helpPillStyle.Render(desc + " [" + key + "]")
 }
 
 func (m Model) renderHelpBar() string {
-	sep := dimStyle.Render(" │ ")
-
 	if m.isSearchMode() {
-		return "  " + strings.Join([]string{
-			faintStyle.Render("type to search"),
-			helpEntry("⏎", "snap"),
-			helpEntry("esc", "cancel"),
-		}, sep)
+		pills := []string{
+			helpPill("type", "search"),
+			helpPill("⏎", "snap"),
+			helpPill("esc", "cancel"),
+		}
+		return joinPillRows(pills, m.helpBarWidth())
 	}
 
 	if m.isSelectMode() {
-		row1 := []string{
-			helpEntry("←→", "word"),
-			helpEntry("↑↓", "cue"),
-			helpEntry("␣", "toggle"),
-			helpEntry("shift+← shift+→", "range"),
-			helpEntry("p", "sentence"),
-			helpEntry("a", "trim range"),
+		pills := []string{
+			helpPill("←→", "word"),
+			helpPill("↑↓", "cue"),
+			helpPill("␣", "toggle"),
+			helpPill("shift+← shift+→", "range"),
+			helpPill("p", "sentence"),
+			helpPill("a", "trim range"),
+			helpPill("d", "clear"),
+			helpPill("/", "search"),
+			helpPill("esc", "back"),
+			helpPill("⏎", "done"),
 		}
-		row2 := []string{
-			helpEntry("d", "clear"),
-			helpEntry("/", "search"),
-			helpEntry("esc", "back"),
-			helpEntry("⏎", "done"),
-		}
-		alignColumns(row1, row2)
-		return "  " + strings.Join(row1, sep) + "\n" + "  " + strings.Join(row2, sep)
+		return joinPillRows(pills, m.helpBarWidth())
 	}
 
 	if m.transcript != nil {
-		row1 := []string{
-			helpEntry("tab", "switch"),
-			helpEntry("←→", "1s"),
-			helpEntry("↑↓", "1m"),
-			helpEntry("[]", "snap"),
-			helpEntry("/", "search"),
+		pills := []string{
+			helpPill("tab", "switch"),
+			helpPill("←→", "1s"),
+			helpPill("↑↓", "1m"),
+			helpPill("[]", "snap"),
+			helpPill("/", "search"),
+			helpPill("s", "split"),
+			helpPill("d", "undo"),
+			helpPill("g", "gif"),
+			helpPill("v", "speed"),
+			helpPill("t", "words"),
+			helpPill("⏎", "done"),
 		}
-		row2 := []string{
-			helpEntry("s", "split"),
-			helpEntry("d", "undo"),
-			helpEntry("g", "gif"),
-			helpEntry("v", "speed"),
-			helpEntry("t", "words"),
-			helpEntry("⏎", "done"),
-		}
-		alignColumns(row1, row2)
-		return "  " + strings.Join(row1, sep) + "\n" + "  " + strings.Join(row2, sep)
+		return joinPillRows(pills, m.helpBarWidth())
 	}
 
-	row1 := []string{
-		helpEntry("tab", "switch"),
-		helpEntry("←→", "1s"),
-		helpEntry("↑↓", "1m"),
-		helpEntry("shift", "10ms"),
-		helpEntry("space", "type"),
+	pills := []string{
+		helpPill("tab", "switch"),
+		helpPill("←→", "1s"),
+		helpPill("↑↓", "1m"),
+		helpPill("shift", "10ms"),
+		helpPill("space", "type"),
+		helpPill("s", "split"),
+		helpPill("d", "undo"),
+		helpPill("g", "gif"),
+		helpPill("v", "speed"),
+		helpPill("⏎", "done"),
 	}
-	row2 := []string{
-		helpEntry("s", "split"),
-		helpEntry("d", "undo"),
-		helpEntry("g", "gif"),
-		helpEntry("v", "speed"),
-		helpEntry("⏎", "done"),
+	return joinPillRows(pills, m.helpBarWidth())
+}
+
+// helpBarWidth returns the available inner width for the help bar.
+func (m Model) helpBarWidth() int {
+	if m.isTwoPane() {
+		return m.leftPaneWidth() + m.rightPaneWidth() + 1
 	}
-	alignColumns(row1, row2)
-	return "  " + strings.Join(row1, sep) + "\n" + "  " + strings.Join(row2, sep)
+	return m.width - 2
+}
+
+// joinPillRows lays out pills horizontally, wrapping to a second row if needed.
+func joinPillRows(pills []string, maxWidth int) string {
+	var rows []string
+	var current []string
+	lineW := 0
+
+	for _, p := range pills {
+		pw := lipgloss.Width(p)
+		needed := pw
+		if len(current) > 0 {
+			needed += 1 // space separator
+		}
+		if lineW+needed > maxWidth && len(current) > 0 {
+			rows = append(rows, strings.Join(current, " "))
+			current = nil
+			lineW = 0
+		}
+		current = append(current, p)
+		if lineW == 0 {
+			lineW = pw
+		} else {
+			lineW += 1 + pw
+		}
+	}
+	if len(current) > 0 {
+		rows = append(rows, strings.Join(current, " "))
+	}
+
+	return strings.Join(rows, "\n")
 }

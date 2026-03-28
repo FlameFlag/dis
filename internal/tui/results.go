@@ -13,7 +13,7 @@ var (
 	cellStyle   = lipgloss.NewStyle().Padding(0, 1)
 	greenStyle  = lipgloss.NewStyle().Foreground(ColorGreen).Padding(0, 1)
 	redStyle    = lipgloss.NewStyle().Foreground(ColorRed).Padding(0, 1)
-	borderStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorSurface1).Padding(0, 1)
+	borderStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(ColorSurface1).Padding(0, 1)
 )
 
 // PrintResultsTable prints a styled comparison table of original vs compressed size.
