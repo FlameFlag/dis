@@ -42,7 +42,7 @@ func (m Model) renderHelpBar() string {
 			helpEntry("←→", "word"),
 			helpEntry("↑↓", "cue"),
 			helpEntry("␣", "toggle"),
-			helpEntry("⇧←⇧→", "range"),
+			helpEntry("shift+← shift+→", "range"),
 			helpEntry("p", "sentence"),
 		}
 		row2 := []string{
