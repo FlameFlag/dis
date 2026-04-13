@@ -1,23 +1,35 @@
 package cache
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"go.etcd.io/bbolt"
 )
+
+const TTL = 6 * time.Hour
 
 var (
-	migrateOnce sync.Once
-	expireOnce  sync.Once
+	bucketMetadata     = []byte("metadata")
+	bucketTranscript   = []byte("transcript")
+	bucketSponsorBlock = []byte("sponsorblock")
+
+	allBuckets = [][]byte{bucketMetadata, bucketTranscript, bucketSponsorBlock}
+
+	expireOnce sync.Once
 )
 
-// Store is a typed cache backed by GORM + SQLite.
-type Store struct{ db *gorm.DB }
+type entry struct {
+	Data      []byte `json:"d"`
+	CreatedAt int64  `json:"t"`
+}
+
+// Store is a typed cache backed by bbolt.
+type Store struct{ db *bbolt.DB }
 
 // TryOpen opens the cache, returning the store and true on success.
 // On failure it logs a debug message and returns nil, false.
@@ -30,7 +42,7 @@ func TryOpen() (*Store, bool) {
 	return s, true
 }
 
-// Open opens (or creates) the cache database at ~/.cache/dis/cache.db.
+// Open opens (or creates) the cache database at ~/.cache/dis/cache.bolt.
 func Open() (*Store, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
@@ -41,50 +53,87 @@ func Open() (*Store, error) {
 		return nil, err
 	}
 
-	dsn := filepath.Join(dir, "cache.db") +
-		"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)"
-
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+	db, err := bbolt.Open(filepath.Join(dir, "cache.bolt"), 0o644, &bbolt.Options{
+		Timeout: 1 * time.Second,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	sqlDB, _ := db.DB()
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
-	sqlDB.SetConnMaxLifetime(0)
-
-	var migrateErr error
-	migrateOnce.Do(func() {
-		migrateErr = db.AutoMigrate(
-			&MetadataCache{}, &TranscriptCache{},
-			&SponsorBlockCache{},
-		)
-	})
-	if migrateErr != nil {
-		return nil, migrateErr
+	if err := db.Update(func(tx *bbolt.Tx) error {
+		for _, name := range allBuckets {
+			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		_ = db.Close()
+		return nil, err
 	}
 
-	return &Store{db}, nil
+	return &Store{db: db}, nil
 }
 
-// Close closes the underlying database connection.
-func (s *Store) Close() error {
-	sqlDB, err := s.db.DB()
-	if err != nil {
-		return err
-	}
-	return sqlDB.Close()
-}
+// Close closes the underlying database.
+func (s *Store) Close() error { return s.db.Close() }
 
-// DeleteExpired removes stale entries from all tables. Runs at most once per process.
+// DeleteExpired removes stale entries from all buckets. Runs at most once per process.
 func (s *Store) DeleteExpired() {
 	expireOnce.Do(func() {
-		cutoff := cutoffUnix()
-		s.db.Where("created_at <= ?", cutoff).Delete(&MetadataCache{})
-		s.db.Where("created_at <= ?", cutoff).Delete(&TranscriptCache{})
-		s.db.Where("created_at <= ?", cutoff).Delete(&SponsorBlockCache{})
+		cutoff := time.Now().Add(-TTL).Unix()
+		_ = s.db.Update(func(tx *bbolt.Tx) error {
+			for _, name := range allBuckets {
+				b := tx.Bucket(name)
+				if b == nil {
+					continue
+				}
+				c := b.Cursor()
+				for k, v := c.First(); k != nil; k, v = c.Next() {
+					var e entry
+					if json.Unmarshal(v, &e) != nil || e.CreatedAt <= cutoff {
+						_ = c.Delete()
+					}
+				}
+			}
+			return nil
+		})
 	})
 }
+
+func get(s *Store, bucket []byte, key string) ([]byte, bool) {
+	var data []byte
+	_ = s.db.View(func(tx *bbolt.Tx) error {
+		v := tx.Bucket(bucket).Get([]byte(key))
+		if v == nil {
+			return nil
+		}
+		var e entry
+		if err := json.Unmarshal(v, &e); err != nil {
+			return nil
+		}
+		if e.CreatedAt <= time.Now().Add(-TTL).Unix() {
+			return nil
+		}
+		data = e.Data
+		return nil
+	})
+	return data, data != nil
+}
+
+func set(s *Store, bucket []byte, key string, data []byte) {
+	_ = s.db.Update(func(tx *bbolt.Tx) error {
+		raw, err := json.Marshal(entry{Data: data, CreatedAt: time.Now().Unix()})
+		if err != nil {
+			return err
+		}
+		return tx.Bucket(bucket).Put([]byte(key), raw)
+	})
+}
+
+func (s *Store) GetMetadata(key string) ([]byte, bool)    { return get(s, bucketMetadata, key) }
+func (s *Store) SetMetadata(key string, data []byte)       { set(s, bucketMetadata, key, data) }
+func (s *Store) GetTranscript(key string) ([]byte, bool)   { return get(s, bucketTranscript, key) }
+func (s *Store) SetTranscript(key string, data []byte)     { set(s, bucketTranscript, key, data) }
+func (s *Store) GetSponsorBlock(key string) ([]byte, bool) { return get(s, bucketSponsorBlock, key) }
+func (s *Store) SetSponsorBlock(key string, data []byte)   { set(s, bucketSponsorBlock, key, data) }
