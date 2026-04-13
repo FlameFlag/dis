@@ -23,18 +23,18 @@ var (
 
 // Fade gradient for transcript cues below the active one (progressively dimmer).
 var fadeGradient = []lipgloss.Style{
-	lipgloss.NewStyle().Foreground(tui.ColorSubtext0),         // 0: slight fade
-	lipgloss.NewStyle().Foreground(tui.ColorOverlay0),         // 1: moderate
-	lipgloss.NewStyle().Foreground(tui.ColorSurface2),         // 2: dim
-	lipgloss.NewStyle().Foreground(tui.ColorSurface1),         // 3: very dim
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#3b3f52")), // 4: near-invisible
+	lipgloss.NewStyle().Foreground(tui.ColorSubtext0), // 0: slight fade
+	lipgloss.NewStyle().Foreground(tui.ColorOverlay0), // 1: moderate
+	lipgloss.NewStyle().Foreground(tui.ColorSurface2), // 2: dim
+	lipgloss.NewStyle().Foreground(tui.ColorSurface1), // 3: very dim
+	lipgloss.NewStyle().Foreground(tui.ColorFadeEnd),  // 4: near-invisible
 }
 
-// Track gradient for the selected region edges (#2: fade-in/fade-out at selection boundaries).
+// Track gradient for the selected region edges (fade-in/fade-out at selection boundaries).
 var trackGradient = []lipgloss.Style{
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#8b6a50")), // 0: dim peach
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#c08a68")), // 1: mid peach
-	lipgloss.NewStyle().Foreground(lipgloss.Color("#daa078")), // 2: warm peach
+	lipgloss.NewStyle().Foreground(tui.ColorTrackDim),  // 0: dim accent
+	lipgloss.NewStyle().Foreground(tui.ColorTrackMid),  // 1: mid accent
+	lipgloss.NewStyle().Foreground(tui.ColorTrackWarm), // 2: warm accent
 }
 
 var (

@@ -5,6 +5,7 @@ import (
 	"dis/internal/config"
 	"dis/internal/convert"
 	"dis/internal/tui"
+	"dis/internal/tui/palette"
 	"dis/internal/validate"
 	"errors"
 	"fmt"
@@ -107,30 +108,30 @@ func init() {
 func Execute(ctx context.Context) error {
 	return fang.Execute(ctx, rootCmd,
 		fang.WithVersion(Version),
-		fang.WithColorSchemeFunc(catppuccinColorScheme),
+		fang.WithColorSchemeFunc(termColorScheme),
 		fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM),
 	)
 }
 
-func catppuccinColorScheme(_ lipgloss.LightDarkFunc) fang.ColorScheme {
+func termColorScheme(_ lipgloss.LightDarkFunc) fang.ColorScheme {
 	return fang.ColorScheme{
-		Base:           color.NRGBA{R: 0xca, G: 0xd3, B: 0xf5, A: 0xff}, // Text
-		Title:          color.NRGBA{R: 0xf5, G: 0xa9, B: 0x7f, A: 0xff}, // Peach
-		Description:    color.NRGBA{R: 0xa5, G: 0xad, B: 0xcb, A: 0xff}, // Subtext0
-		Codeblock:      color.NRGBA{R: 0x36, G: 0x3a, B: 0x4f, A: 0xff}, // Surface0
-		Program:        color.NRGBA{R: 0x8b, G: 0xd5, B: 0xca, A: 0xff}, // Teal
-		DimmedArgument: color.NRGBA{R: 0x6e, G: 0x73, B: 0x8d, A: 0xff}, // Overlay0
-		Comment:        color.NRGBA{R: 0x6e, G: 0x73, B: 0x8d, A: 0xff}, // Overlay0
-		Flag:           color.NRGBA{R: 0xa6, G: 0xda, B: 0x95, A: 0xff}, // Green
-		FlagDefault:    color.NRGBA{R: 0x5b, G: 0x60, B: 0x78, A: 0xff}, // Surface2
-		Command:        color.NRGBA{R: 0xee, G: 0xd4, B: 0x9f, A: 0xff}, // Yellow
-		QuotedString:   color.NRGBA{R: 0xf5, G: 0xa9, B: 0x7f, A: 0xff}, // Peach
-		Argument:       color.NRGBA{R: 0xca, G: 0xd3, B: 0xf5, A: 0xff}, // Text
+		Base:           palette.HexToNRGBA(string(tui.ColorText)),
+		Title:          palette.HexToNRGBA(string(tui.ColorPeach)),
+		Description:    palette.HexToNRGBA(string(tui.ColorSubtext0)),
+		Codeblock:      palette.HexToNRGBA(string(tui.ColorSurface0)),
+		Program:        palette.HexToNRGBA(string(tui.ColorTeal)),
+		DimmedArgument: palette.HexToNRGBA(string(tui.ColorOverlay0)),
+		Comment:        palette.HexToNRGBA(string(tui.ColorOverlay0)),
+		Flag:           palette.HexToNRGBA(string(tui.ColorGreen)),
+		FlagDefault:    palette.HexToNRGBA(string(tui.ColorSurface2)),
+		Command:        palette.HexToNRGBA(string(tui.ColorYellow)),
+		QuotedString:   palette.HexToNRGBA(string(tui.ColorPeach)),
+		Argument:       palette.HexToNRGBA(string(tui.ColorText)),
 		ErrorHeader: [2]color.Color{
-			color.NRGBA{R: 0x24, G: 0x27, B: 0x3a, A: 0xff}, // Base (fg)
-			color.NRGBA{R: 0xed, G: 0x87, B: 0x96, A: 0xff}, // Red (bg)
+			palette.HexToNRGBA(string(tui.ColorBase)),
+			palette.HexToNRGBA(string(tui.ColorRed)),
 		},
-		ErrorDetails: color.NRGBA{R: 0xed, G: 0x87, B: 0x96, A: 0xff}, // Red
+		ErrorDetails: palette.HexToNRGBA(string(tui.ColorRed)),
 	}
 }
 

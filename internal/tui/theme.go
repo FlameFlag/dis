@@ -1,26 +1,32 @@
 package tui
 
 import (
+	"dis/internal/tui/palette"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 )
 
-// Catppuccin Macchiato palette.
-const (
-	ColorPeach    = lipgloss.Color("#f5a97f")
-	ColorYellow   = lipgloss.Color("#eed49f")
-	ColorTeal     = lipgloss.Color("#8bd5ca")
-	ColorGreen    = lipgloss.Color("#a6da95")
-	ColorRed      = lipgloss.Color("#ed8796")
-	ColorText     = lipgloss.Color("#cad3f5")
-	ColorSubtext0 = lipgloss.Color("#a5adcb")
-	ColorSurface2 = lipgloss.Color("#5b6078")
-	ColorSurface1 = lipgloss.Color("#494d64")
-	ColorOverlay0 = lipgloss.Color("#6e738d")
-	ColorBase     = lipgloss.Color("#24273a")
+var (
+	ColorPeach    = palette.Resolved.Accent
+	ColorYellow   = palette.Resolved.Warm
+	ColorTeal     = palette.Resolved.Info
+	ColorGreen    = palette.Resolved.Success
+	ColorRed      = palette.Resolved.Error
+	ColorText     = palette.Resolved.Text
+	ColorSubtext0 = palette.Resolved.Subtext0
+	ColorSurface0 = palette.Resolved.Surface0
+	ColorSurface2 = palette.Resolved.Surface2
+	ColorSurface1 = palette.Resolved.Surface1
+	ColorOverlay0 = palette.Resolved.Overlay0
+	ColorBase     = palette.Resolved.Base
+
+	ColorFadeEnd   = palette.Resolved.FadeEnd
+	ColorTrackDim  = palette.Resolved.TrackDim
+	ColorTrackMid  = palette.Resolved.TrackMid
+	ColorTrackWarm = palette.Resolved.TrackWarm
 )
 
-// ConfigureLogger styles the charmbracelet/log default logger with Catppuccin colors.
 func ConfigureLogger() {
 	styles := log.DefaultStyles()
 
