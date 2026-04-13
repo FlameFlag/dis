@@ -7,7 +7,6 @@ import (
 	"dis/internal/convert"
 	"dis/internal/tui"
 	"dis/internal/util"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,41 +17,16 @@ import (
 	"github.com/lrstanley/go-ytdlp"
 )
 
-func openCache() (*cache.Store, bool) {
-	s, err := cache.Open()
-	if err != nil {
-		log.Debug("cache unavailable", "err", err)
-		return nil, false
-	}
-	return s, true
-}
-
 // FetchMetadata fetches full yt-dlp metadata for a URL (skip-download + print-json).
 func FetchMetadata(ctx context.Context, rawURL string) (*ytdlp.ExtractedInfo, error) {
-	if store, ok := openCache(); ok {
-		defer func() { _ = store.Close() }()
-		store.DeleteExpired()
-		if data, ok := store.GetMetadata(rawURL); ok {
-			var info ytdlp.ExtractedInfo
-			if json.Unmarshal(data, &info) == nil {
-				log.Debug("Metadata cache hit", "url", rawURL)
-				return &info, nil
-			}
-		}
-	}
-
-	info, err := fetchMetadataFromYTDLP(ctx, rawURL)
-	if err != nil {
-		return nil, err
-	}
-
-	if store, ok := openCache(); ok {
-		defer func() { _ = store.Close() }()
-		if blob, err := json.Marshal(info); err == nil {
-			store.SetMetadata(rawURL, blob)
-		}
-	}
-	return info, nil
+	return cache.FetchCached(
+		rawURL,
+		(*cache.Store).GetMetadata,
+		(*cache.Store).SetMetadata,
+		func() (*ytdlp.ExtractedInfo, error) {
+			return fetchMetadataFromYTDLP(ctx, rawURL)
+		},
+	)
 }
 
 func fetchMetadataFromYTDLP(ctx context.Context, rawURL string) (*ytdlp.ExtractedInfo, error) {

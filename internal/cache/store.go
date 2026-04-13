@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/charmbracelet/log"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -17,6 +18,17 @@ var (
 
 // Store is a typed cache backed by GORM + SQLite.
 type Store struct{ db *gorm.DB }
+
+// TryOpen opens the cache, returning the store and true on success.
+// On failure it logs a debug message and returns nil, false.
+func TryOpen() (*Store, bool) {
+	s, err := Open()
+	if err != nil {
+		log.Debug("cache unavailable", "err", err)
+		return nil, false
+	}
+	return s, true
+}
 
 // Open opens (or creates) the cache database at ~/.cache/dis/cache.db.
 func Open() (*Store, error) {

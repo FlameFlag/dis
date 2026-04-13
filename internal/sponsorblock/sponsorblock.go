@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"time"
-
-	"github.com/charmbracelet/log"
 )
 
 // Category is a typed SponsorBlock segment category.
@@ -83,40 +81,16 @@ func ExtractVideoID(rawURL string) string {
 	return ""
 }
 
-func openCache() (*cache.Store, bool) {
-	s, err := cache.Open()
-	if err != nil {
-		log.Debug("cache unavailable", "err", err)
-		return nil, false
-	}
-	return s, true
-}
-
 // GetSegments returns SponsorBlock segments for a video, using a local cache.
 func GetSegments(ctx context.Context, videoID string) ([]Segment, error) {
-	if store, ok := openCache(); ok {
-		defer func() { _ = store.Close() }()
-		store.DeleteExpired()
-		if data, ok := store.GetSponsorBlock(videoID); ok {
-			var segments []Segment
-			if json.Unmarshal(data, &segments) == nil {
-				return segments, nil
-			}
-		}
-	}
-
-	segments, err := fetchSegments(ctx, videoID)
-	if err != nil {
-		return nil, err
-	}
-
-	if store, ok := openCache(); ok {
-		defer func() { _ = store.Close() }()
-		if blob, err := json.Marshal(segments); err == nil {
-			store.SetSponsorBlock(videoID, blob)
-		}
-	}
-	return segments, nil
+	return cache.FetchCached(
+		videoID,
+		(*cache.Store).GetSponsorBlock,
+		(*cache.Store).SetSponsorBlock,
+		func() ([]Segment, error) {
+			return fetchSegments(ctx, videoID)
+		},
+	)
 }
 
 func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
