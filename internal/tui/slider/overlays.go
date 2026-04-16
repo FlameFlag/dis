@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"bytes"
 	"dis/internal/sponsorblock"
 	"dis/internal/util"
 	"fmt"
@@ -44,10 +45,7 @@ func (m Model) renderChapterLabels(width int) string {
 		return ""
 	}
 
-	buf := make([]byte, width)
-	for i := range buf {
-		buf[i] = ' '
-	}
+	buf := bytes.Repeat([]byte{' '}, width)
 
 	for _, ch := range chapters {
 		lbl := ch.title
@@ -105,11 +103,8 @@ func (m Model) renderSponsorSegments(width int) string {
 		return ""
 	}
 
-	buf := make([]byte, width)
+	buf := bytes.Repeat([]byte{' '}, width)
 	cats := make([]sponsorblock.Category, width)
-	for i := range buf {
-		buf[i] = ' '
-	}
 
 	for _, seg := range m.sponsorSegments {
 		if seg.Category == sponsorblock.CategoryHighlight {

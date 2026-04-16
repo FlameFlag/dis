@@ -1,7 +1,6 @@
 package subtitle
 
 import (
-	"bufio"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -12,8 +11,6 @@ var srtTimestampRe = regexp.MustCompile(`(\d{2}):(\d{2}):(\d{2}),(\d{3})`)
 
 // ParseSRT parses an SRT subtitle string into a Transcript.
 func ParseSRT(data string) (Transcript, error) {
-	scanner := bufio.NewScanner(strings.NewReader(data))
-
 	type state int
 	const (
 		stateSeeking state = iota
@@ -48,8 +45,8 @@ func ParseSRT(data string) (Transcript, error) {
 		textLines = nil
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
+	for line := range strings.Lines(data) {
+		line = strings.TrimRight(line, "\r\n")
 		// Strip BOM
 		line = strings.TrimPrefix(line, "\ufeff")
 

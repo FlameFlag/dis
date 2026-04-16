@@ -131,11 +131,7 @@ func Resolution(res string) error {
 		return nil
 	}
 
-	validStrs := make([]string, len(config.ValidResolutions))
-	for i, r := range config.ValidResolutions {
-		validStrs[i] = fmt.Sprintf("%dp", r)
-	}
-	return fmt.Errorf("invalid resolution: %s. Valid options are: %s", res, strings.Join(validStrs, ", "))
+	return fmt.Errorf("invalid resolution: %s. Valid options are: %s", res, strings.Join(config.ResolutionStrings(), ", "))
 }
 
 // GIFFps checks that the GIF frame rate is within valid range.

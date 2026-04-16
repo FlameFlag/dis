@@ -131,7 +131,7 @@ func set(s *Store, bucket []byte, key string, data []byte) {
 	})
 }
 
-func (s *Store) GetMetadata(key string) ([]byte, bool)    { return get(s, bucketMetadata, key) }
+func (s *Store) GetMetadata(key string) ([]byte, bool)     { return get(s, bucketMetadata, key) }
 func (s *Store) SetMetadata(key string, data []byte)       { set(s, bucketMetadata, key, data) }
 func (s *Store) GetTranscript(key string) ([]byte, bool)   { return get(s, bucketTranscript, key) }
 func (s *Store) SetTranscript(key string, data []byte)     { set(s, bucketTranscript, key, data) }

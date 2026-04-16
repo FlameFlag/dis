@@ -4,8 +4,8 @@ import (
 	"dis/internal/util"
 	"html"
 	"regexp"
+	"slices"
 	"strings"
-	"unicode"
 )
 
 var (
@@ -47,12 +47,9 @@ type Word struct {
 
 // CueAt returns the index of the cue containing the given time, or -1.
 func (t Transcript) CueAt(seconds float64) int {
-	for i, c := range t {
-		if seconds >= c.Start && seconds < c.End {
-			return i
-		}
-	}
-	return -1
+	return slices.IndexFunc(t, func(c Cue) bool {
+		return seconds >= c.Start && seconds < c.End
+	})
 }
 
 // NearestCue returns the index of the cue closest to the given time.
@@ -194,14 +191,5 @@ func wordsInterpolated(c Cue, texts []string, cueIndex int) []Word {
 }
 
 func splitWords(text string) []string {
-	var words []string
-	for _, w := range strings.FieldsFunc(text, func(r rune) bool {
-		return unicode.IsSpace(r)
-	}) {
-		w = strings.TrimSpace(w)
-		if w != "" {
-			words = append(words, w)
-		}
-	}
-	return words
+	return strings.Fields(text)
 }

@@ -66,15 +66,8 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 		vFilters = append(vFilters, fmt.Sprintf("setpts=PTS/%.4g", s.Speed))
 	}
 	if s.Resolution != "" && info.HasVideo {
-		cleaned := strings.TrimSuffix(strings.ToLower(s.Resolution), "p")
-		resInt, err := strconv.Atoi(cleaned)
-		if err == nil {
-			aspectRatio := float64(info.Width) / float64(info.Height)
-			outWidth := int(math.Round(float64(resInt) * aspectRatio))
-			outHeight := resInt
-			outWidth -= outWidth % 2
-			outHeight -= outHeight % 2
-			vFilters = append(vFilters, fmt.Sprintf("scale=%d:%d", outWidth, outHeight))
+		if sf := scaleFilter(s.Resolution, info.Width, info.Height); sf != "" {
+			vFilters = append(vFilters, sf)
 		}
 	}
 	if len(vFilters) > 0 {
@@ -149,11 +142,13 @@ func targetSizeArgs(videoBitrateKbps int) []string {
 	}
 }
 
-func resolutionArgs(resolution string, origWidth, origHeight int) []string {
+// scaleFilter returns a "scale=W:H" filter string for the given resolution,
+// preserving aspect ratio and ensuring even dimensions. Returns "" on invalid input.
+func scaleFilter(resolution string, origWidth, origHeight int) string {
 	cleaned := strings.TrimSuffix(strings.ToLower(resolution), "p")
 	resInt, err := strconv.Atoi(cleaned)
 	if err != nil {
-		return nil
+		return ""
 	}
 
 	aspectRatio := float64(origWidth) / float64(origHeight)
@@ -164,5 +159,12 @@ func resolutionArgs(resolution string, origWidth, origHeight int) []string {
 	outWidth -= outWidth % 2
 	outHeight -= outHeight % 2
 
-	return []string{"-vf", fmt.Sprintf("scale=%d:%d", outWidth, outHeight)}
+	return fmt.Sprintf("scale=%d:%d", outWidth, outHeight)
+}
+
+func resolutionArgs(resolution string, origWidth, origHeight int) []string {
+	if sf := scaleFilter(resolution, origWidth, origHeight); sf != "" {
+		return []string{"-vf", sf}
+	}
+	return nil
 }

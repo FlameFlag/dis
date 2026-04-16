@@ -24,10 +24,8 @@ const (
 	GraphicsSixel
 )
 
-var (
-	graphicsOnce             sync.Once
-	detectedGraphicsProtocol GraphicsProtocol
-)
+// DetectedProtocol returns the detected graphics protocol (cached after first call).
+var DetectedProtocol = sync.OnceValue(detectGraphics)
 
 func detectGraphics() GraphicsProtocol {
 	// Zellij does not support kitty graphics protocol and its sixel
@@ -56,14 +54,6 @@ func detectGraphics() GraphicsProtocol {
 	}
 
 	return GraphicsNone
-}
-
-// DetectedProtocol returns the detected graphics protocol.
-func DetectedProtocol() GraphicsProtocol {
-	graphicsOnce.Do(func() {
-		detectedGraphicsProtocol = detectGraphics()
-	})
-	return detectedGraphicsProtocol
 }
 
 // IsKittySupported returns true if the terminal supports the Kitty graphics protocol.

@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"bytes"
 	"dis/internal/util"
 	"strings"
 
@@ -123,10 +124,7 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 		}
 	}
 
-	labelBuf := make([]byte, width)
-	for i := range labelBuf {
-		labelBuf[i] = ' '
-	}
+	labelBuf := bytes.Repeat([]byte{' '}, width)
 
 	for t := 0.0; t <= m.duration; t += interval {
 		pos := int(t / m.duration * float64(width-1))

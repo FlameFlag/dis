@@ -1,7 +1,6 @@
 package subtitle
 
 import (
-	"bufio"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -15,8 +14,6 @@ var (
 
 // ParseVTT parses a WebVTT subtitle string into a Transcript.
 func ParseVTT(data string) (Transcript, error) {
-	scanner := bufio.NewScanner(strings.NewReader(data))
-
 	// Skip BOM if present
 	firstLine := true
 
@@ -56,8 +53,8 @@ func ParseVTT(data string) (Transcript, error) {
 		textLines = nil
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
+	for line := range strings.Lines(data) {
+		line = strings.TrimRight(line, "\r\n")
 
 		if firstLine {
 			// Strip BOM
