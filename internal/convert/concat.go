@@ -1,11 +1,9 @@
 package convert
 
 import (
-	"cmp"
 	"context"
 	"dis/internal/config"
 	"dis/internal/tui"
-	"dis/internal/validate"
 	"fmt"
 	"strconv"
 	"strings"
@@ -140,20 +138,11 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 		args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
 
 		// Target size constraint
-		if s.TargetSize != "" {
-			targetBytes, _ := config.ParseSize(s.TargetSize)
-			if targetBytes > 0 {
-				var totalDur float64
-				for _, seg := range segments {
-					totalDur += seg.Duration
-				}
-				audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
-				videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, totalDur, audioBitrate)
-				if videoBitrateKbps > 0 {
-					args = append(args, targetSizeArgs(videoBitrateKbps)...)
-				}
-			}
+		var totalDur float64
+		for _, seg := range segments {
+			totalDur += seg.Duration
 		}
+		args = append(args, targetBitrateArgs(s, totalDur)...)
 
 		if s.Resolution != "" {
 			args = append(args, resolutionArgs(s.Resolution, info.Width, info.Height)...)

@@ -45,20 +45,11 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
 
 	// Target size constraint
-	if s.TargetSize != "" {
-		targetBytes, _ := config.ParseSize(s.TargetSize)
-		if targetBytes > 0 {
-			duration := info.Duration
-			if trimSettings != nil {
-				duration = trimSettings.Duration
-			}
-			audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
-			videoBitrateKbps := config.CalculateVideoBitrate(targetBytes, duration, audioBitrate)
-			if videoBitrateKbps > 0 {
-				args = append(args, targetSizeArgs(videoBitrateKbps)...)
-			}
-		}
+	duration := info.Duration
+	if trimSettings != nil {
+		duration = trimSettings.Duration
 	}
+	args = append(args, targetBitrateArgs(s, duration)...)
 
 	// Video filter chain (resolution + speed)
 	var vFilters []string
@@ -140,6 +131,24 @@ func targetSizeArgs(videoBitrateKbps int) []string {
 		"-maxrate", fmt.Sprintf("%dk", videoBitrateKbps),
 		"-bufsize", fmt.Sprintf("%dk", videoBitrateKbps*2),
 	}
+}
+
+// targetBitrateArgs resolves the target-size setting into -maxrate/-bufsize
+// args, or returns nil when unset, unparseable, or the duration is zero.
+func targetBitrateArgs(s *config.Settings, duration float64) []string {
+	if s.TargetSize == "" {
+		return nil
+	}
+	targetBytes, _ := config.ParseSize(s.TargetSize)
+	if targetBytes <= 0 {
+		return nil
+	}
+	audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
+	kbps := config.CalculateVideoBitrate(targetBytes, duration, audioBitrate)
+	if kbps <= 0 {
+		return nil
+	}
+	return targetSizeArgs(kbps)
 }
 
 // scaleFilter returns a "scale=W:H" filter string for the given resolution,
