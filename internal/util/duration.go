@@ -12,34 +12,34 @@ func secondsToDuration(seconds float64) time.Duration {
 	return time.Duration(math.Abs(seconds) * float64(time.Second))
 }
 
+// splitHMS breaks a duration into hours, minutes, seconds, and milliseconds.
+func splitHMS(d time.Duration) (h, m, s, ms int) {
+	h = int(d.Hours())
+	m = int(d.Minutes()) % 60
+	s = int(d.Seconds()) % 60
+	ms = int(d.Milliseconds()) % 1000
+	return
+}
+
 // FormatDurationShort formats seconds as "M:SS".
 func FormatDurationShort(seconds float64) string {
-	d := secondsToDuration(seconds)
-	mins := int(d.Minutes())
-	secs := int(d.Seconds()) % 60
-	return fmt.Sprintf("%d:%02d", mins, secs)
+	_, m, s, _ := splitHMS(secondsToDuration(seconds))
+	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 // FormatDurationMillis formats seconds as "M:SS.mmm" with millisecond precision.
 // The ".mmm" suffix is omitted when milliseconds are zero.
 func FormatDurationMillis(seconds float64) string {
-	d := secondsToDuration(seconds)
-	mins := int(d.Minutes())
-	secs := int(d.Seconds()) % 60
-	ms := int(d.Milliseconds()) % 1000
+	_, m, s, ms := splitHMS(secondsToDuration(seconds))
 	if ms == 0 {
-		return fmt.Sprintf("%d:%02d", mins, secs)
+		return fmt.Sprintf("%d:%02d", m, s)
 	}
-	return fmt.Sprintf("%d:%02d.%03d", mins, secs, ms)
+	return fmt.Sprintf("%d:%02d.%03d", m, s, ms)
 }
 
 // FormatTimeHMS formats seconds as "HH:MM:SS.mmm" — the form FFmpeg expects for -ss/-t.
 func FormatTimeHMS(seconds float64) string {
-	d := secondsToDuration(seconds)
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-	ms := int(d.Milliseconds()) % 1000
+	h, m, s, ms := splitHMS(secondsToDuration(seconds))
 	return fmt.Sprintf("%02d:%02d:%02d.%03d", h, m, s, ms)
 }
 
