@@ -20,38 +20,30 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 	fullArgs := slices.Concat([]string{"-y"}, args)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
-	procgroup.Setup(cmd, 5*time.Second)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stderr pipe: %w", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ffmpeg: %w", err)
-	}
-	procgroup.Track(cmd)
-	defer procgroup.Untrack(cmd)
-
-	scanner := bufio.NewScanner(stderr)
-	scanner.Split(ScanFFmpegLines)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if totalDuration > 0 && onProgress != nil {
-			if t := ParseFFmpegTime(line); t > 0 {
-				pct := min(int(t/totalDuration*100), 100)
-				if pct > 0 {
-					onProgress(pct)
+	err = procgroup.Run(ctx, cmd, 5*time.Second, func() error {
+		scanner := bufio.NewScanner(stderr)
+		scanner.Split(ScanFFmpegLines)
+		for scanner.Scan() {
+			if totalDuration > 0 && onProgress != nil {
+				if t := ParseFFmpegTime(scanner.Text()); t > 0 {
+					pct := min(int(t/totalDuration*100), 100)
+					if pct > 0 {
+						onProgress(pct)
+					}
 				}
 			}
 		}
-	}
-
-	if err := cmd.Wait(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("ffmpeg exited with error: %w", err)
 	}
-
 	return nil
 }
 

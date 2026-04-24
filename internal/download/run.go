@@ -18,7 +18,6 @@ import (
 // killed on cancellation.
 func runInProcessGroup(ctx context.Context, dl *ytdlp.Command, url string, onStderrLine func(string)) (string, error) {
 	cmd := dl.BuildCommand(ctx, url)
-	procgroup.Setup(cmd, 5*time.Second)
 
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -28,23 +27,18 @@ func runInProcessGroup(ctx context.Context, dl *ytdlp.Command, url string, onStd
 		return "", fmt.Errorf("stderr pipe: %w", err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("start yt-dlp: %w", err)
-	}
-	procgroup.Track(cmd)
-	defer procgroup.Untrack(cmd)
-
-	scanner := bufio.NewScanner(stderrPipe)
-	scanner.Split(convert.ScanFFmpegLines)
-	for scanner.Scan() {
-		if onStderrLine != nil {
-			onStderrLine(scanner.Text())
+	err = procgroup.Run(ctx, cmd, 5*time.Second, func() error {
+		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Split(convert.ScanFFmpegLines)
+		for scanner.Scan() {
+			if onStderrLine != nil {
+				onStderrLine(scanner.Text())
+			}
 		}
-	}
-
-	if err := cmd.Wait(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return stdout.String(), fmt.Errorf("yt-dlp: %w", err)
 	}
-
 	return stdout.String(), nil
 }
