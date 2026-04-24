@@ -3,7 +3,9 @@ package sponsorblock
 import (
 	"context"
 	"dis/internal/cache"
+	"dis/internal/util"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -64,8 +66,6 @@ type apiResponse struct {
 	ActionType string     `json:"actionType"`
 }
 
-var httpClient = &http.Client{Timeout: 10 * time.Second}
-
 var videoIDPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?:youtube\.com/watch\?.*v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})`),
 }
@@ -97,26 +97,21 @@ func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
 	cats, _ := json.Marshal(AllCategories())
 	u := fmt.Sprintf("%s?videoID=%s&categories=%s", apiBase, url.QueryEscape(videoID), url.QueryEscape(string(cats)))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	resp, err := httpClient.Do(req)
+	body, err := util.HTTPGet(ctx, u, nil)
 	if err != nil {
+		// A 404 means "no segments for this video" — not a real error.
+		var httpErr *util.HTTPError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
+			return nil, nil
+		}
 		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil // no segments
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("sponsorblock API returned %d", resp.StatusCode)
 	}
 
 	var apiSegs []apiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiSegs); err != nil {
+	if err := json.Unmarshal(body, &apiSegs); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 
