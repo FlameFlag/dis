@@ -73,10 +73,7 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 
 		log.Info("Converted video saved", "path", outputPath)
 
-		// Results table
-		originalSize := fileSize(inputPath)
-		compressedSize := fileSize(outputPath)
-		tui.PrintResultsTable(originalSize, compressedSize)
+		originalSize, compressedSize := reportResults(inputPath, outputPath, s)
 
 		// Warn if target size is set and output exceeds target
 		if s.TargetSize != "" {
@@ -87,8 +84,6 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 					"actual", humanize.Bytes(uint64(compressedSize)))
 			}
 		}
-
-		copyAndLog(s, outputPath)
 
 		// Retry if output is larger
 		if compressedSize > originalSize && info.HasVideo {
@@ -120,6 +115,16 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
+}
+
+// reportResults prints the size comparison table, copies the output path to
+// the clipboard if requested, and returns the input/output sizes.
+func reportResults(inputPath, outputPath string, s *config.Settings) (int64, int64) {
+	originalSize := fileSize(inputPath)
+	outputSize := fileSize(outputPath)
+	tui.PrintResultsTable(originalSize, outputSize)
+	copyAndLog(s, outputPath)
+	return originalSize, outputSize
 }
 
 // copyWithoutConversion copies the input file to the output directory without re-encoding.

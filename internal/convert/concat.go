@@ -54,11 +54,7 @@ func ConcatSegments(ctx context.Context, inputPath string, s *config.Settings, s
 
 	log.Info("Concatenated video saved", "path", outputPath)
 
-	originalSize := fileSize(inputPath)
-	compressedSize := fileSize(outputPath)
-	tui.PrintResultsTable(originalSize, compressedSize)
-
-	copyAndLog(s, outputPath)
+	reportResults(inputPath, outputPath, s)
 
 	return nil
 }

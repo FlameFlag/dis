@@ -79,11 +79,7 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 		setFileTimestamps(outputPath, uploadDate)
 	}
 
-	originalSize := fileSize(inputPath)
-	compressedSize := fileSize(outputPath)
-	tui.PrintResultsTable(originalSize, compressedSize)
-
-	copyAndLog(s, outputPath)
+	reportResults(inputPath, outputPath, s)
 
 	log.Info("GIF saved", "path", outputPath)
 	return nil
