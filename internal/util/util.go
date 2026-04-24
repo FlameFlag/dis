@@ -62,8 +62,3 @@ func IsYouTube(rawURL string) bool {
 func ShortGUID() string {
 	return fmt.Sprintf("%04x", rand.N(0x10000))
 }
-
-// ShortID returns a 6-char random hex string for temp directories.
-func ShortID() string {
-	return fmt.Sprintf("%06x", rand.N(0x1000000))
-}

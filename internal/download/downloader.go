@@ -91,8 +91,8 @@ func baseCommand(s *config.Settings, rawURL string) *ytdlp.Command {
 }
 
 func makeTempDir() (string, error) {
-	dir := filepath.Join(os.TempDir(), util.ShortID())
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir, err := os.MkdirTemp("", "dis-dl-*")
+	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	return dir, nil
