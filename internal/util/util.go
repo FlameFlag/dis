@@ -16,6 +16,20 @@ func FileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// FirstExistingFile returns the first path in candidates that exists on disk,
+// or "" if none do. Empty candidates are skipped.
+func FirstExistingFile(candidates ...string) string {
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
+}
+
 // IsValidURL checks for a valid URL with scheme and host.
 func IsValidURL(s string) bool {
 	u, err := url.ParseRequestURI(s)

@@ -1,6 +1,7 @@
 package palette
 
 import (
+	"dis/internal/util"
 	"os"
 	"path/filepath"
 
@@ -41,11 +42,10 @@ type alacrittyConfig struct {
 
 func alacrittyConfigPath() string {
 	var candidates []string
-
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		candidates = append(candidates,
-			filepath.Join(dir, "alacritty", "alacritty.toml"),
-			filepath.Join(dir, "alacritty.toml"),
+			filepath.Join(xdg, "alacritty", "alacritty.toml"),
+			filepath.Join(xdg, "alacritty.toml"),
 		)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
@@ -54,13 +54,7 @@ func alacrittyConfigPath() string {
 			filepath.Join(home, ".alacritty.toml"),
 		)
 	}
-
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	return ""
+	return util.FirstExistingFile(candidates...)
 }
 
 func parseAlacrittyPalette() *base16Palette {

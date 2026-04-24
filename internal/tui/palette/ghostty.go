@@ -2,6 +2,7 @@ package palette
 
 import (
 	"bufio"
+	"dis/internal/util"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,11 +11,10 @@ import (
 
 func ghosttyConfigPath() string {
 	var candidates []string
-
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		candidates = append(candidates,
-			filepath.Join(dir, "ghostty", "config.ghostty"),
-			filepath.Join(dir, "ghostty", "config"),
+			filepath.Join(xdg, "ghostty", "config.ghostty"),
+			filepath.Join(xdg, "ghostty", "config"),
 		)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
@@ -25,13 +25,7 @@ func ghosttyConfigPath() string {
 			filepath.Join(home, ".config", "ghostty", "config"),
 		)
 	}
-
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	return ""
+	return util.FirstExistingFile(candidates...)
 }
 
 func parseGhosttyPalette() *base16Palette {
