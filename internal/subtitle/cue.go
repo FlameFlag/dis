@@ -5,6 +5,7 @@ import (
 	"html"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,32 @@ var (
 
 func stripTags(s string) string {
 	return html.UnescapeString(tagRe.ReplaceAllString(s, ""))
+}
+
+// hmsToSeconds converts numeric HH/MM/SS/mmm strings (milliseconds 0–999)
+// into seconds. Empty hours is treated as 0.
+func hmsToSeconds(h, m, s, ms string) (float64, error) {
+	var hours int
+	if h != "" {
+		v, err := strconv.Atoi(h)
+		if err != nil {
+			return 0, err
+		}
+		hours = v
+	}
+	minutes, err := strconv.Atoi(m)
+	if err != nil {
+		return 0, err
+	}
+	seconds, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	millis, err := strconv.Atoi(ms)
+	if err != nil {
+		return 0, err
+	}
+	return float64(hours)*3600 + float64(minutes)*60 + float64(seconds) + float64(millis)/1000, nil
 }
 
 // Cue is a single subtitle entry with timing and plain text.

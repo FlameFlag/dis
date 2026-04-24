@@ -133,11 +133,5 @@ func parseSRTTimestamp(ts string) (float64, error) {
 	if m == nil {
 		return 0, fmt.Errorf("invalid SRT timestamp: %s", ts)
 	}
-
-	hours, _ := strconv.Atoi(m[1])
-	minutes, _ := strconv.Atoi(m[2])
-	seconds, _ := strconv.Atoi(m[3])
-	millis, _ := strconv.Atoi(m[4])
-
-	return float64(hours)*3600 + float64(minutes)*60 + float64(seconds) + float64(millis)/1000, nil
+	return hmsToSeconds(m[1], m[2], m[3], m[4])
 }

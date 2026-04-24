@@ -3,7 +3,6 @@ package subtitle
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -147,32 +146,7 @@ func parseVTTTimestamp(ts string) (float64, error) {
 	if m == nil {
 		return 0, fmt.Errorf("invalid timestamp: %s", ts)
 	}
-
-	var hours int
-	if m[1] != "" {
-		h, err := strconv.Atoi(strings.TrimSuffix(m[1], ":"))
-		if err != nil {
-			return 0, err
-		}
-		hours = h
-	}
-
-	minutes, err := strconv.Atoi(m[2])
-	if err != nil {
-		return 0, err
-	}
-
-	seconds, err := strconv.Atoi(m[3])
-	if err != nil {
-		return 0, err
-	}
-
-	millis, err := strconv.Atoi(m[4])
-	if err != nil {
-		return 0, err
-	}
-
-	return float64(hours)*3600 + float64(minutes)*60 + float64(seconds) + float64(millis)/1000, nil
+	return hmsToSeconds(strings.TrimSuffix(m[1], ":"), m[2], m[3], m[4])
 }
 
 // extractWordTimings extracts <c> tag timestamps from VTT cue text.
