@@ -24,8 +24,8 @@ var (
 )
 
 type entry struct {
-	Data      []byte `json:"d"`
-	CreatedAt int64  `json:"t"`
+	Data      []byte    `json:"d"`
+	CreatedAt time.Time `json:"t"`
 }
 
 // Store is a typed cache backed by bbolt.
@@ -81,7 +81,6 @@ func (s *Store) Close() error { return s.db.Close() }
 // DeleteExpired removes stale entries from all buckets. Runs at most once per process.
 func (s *Store) DeleteExpired() {
 	expireOnce.Do(func() {
-		cutoff := time.Now().Add(-TTL).Unix()
 		_ = s.db.Update(func(tx *bbolt.Tx) error {
 			for _, name := range allBuckets {
 				b := tx.Bucket(name)
@@ -91,7 +90,7 @@ func (s *Store) DeleteExpired() {
 				c := b.Cursor()
 				for k, v := c.First(); k != nil; k, v = c.Next() {
 					var e entry
-					if json.Unmarshal(v, &e) != nil || e.CreatedAt <= cutoff {
+					if json.Unmarshal(v, &e) != nil || time.Since(e.CreatedAt) > TTL {
 						_ = c.Delete()
 					}
 				}
@@ -112,7 +111,7 @@ func get(s *Store, bucket []byte, key string) ([]byte, bool) {
 		if err := json.Unmarshal(v, &e); err != nil {
 			return nil
 		}
-		if e.CreatedAt <= time.Now().Add(-TTL).Unix() {
+		if time.Since(e.CreatedAt) > TTL {
 			return nil
 		}
 		data = e.Data
@@ -123,7 +122,7 @@ func get(s *Store, bucket []byte, key string) ([]byte, bool) {
 
 func set(s *Store, bucket []byte, key string, data []byte) {
 	_ = s.db.Update(func(tx *bbolt.Tx) error {
-		raw, err := json.Marshal(entry{Data: data, CreatedAt: time.Now().Unix()})
+		raw, err := json.Marshal(entry{Data: data, CreatedAt: time.Now()})
 		if err != nil {
 			return err
 		}
