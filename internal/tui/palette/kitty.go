@@ -8,28 +8,26 @@ import (
 	"strings"
 )
 
-func kittyConfigDir() string {
+func kittyConfigDirs() []string {
 	if dir := os.Getenv("KITTY_CONFIG_DIRECTORY"); dir != "" {
-		return dir
+		return []string{dir}
 	}
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
-		return filepath.Join(dir, "kitty")
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, ".config", "kitty")
-	}
-	return ""
+	// configPaths with empty filename produces the bare directory candidates.
+	return configPaths("kitty", false, "")
 }
 
 func parseKittyPalette() *base16Palette {
-	dir := kittyConfigDir()
-	if dir == "" {
+	dirs := kittyConfigDirs()
+	if len(dirs) == 0 {
 		return nil
 	}
 
 	p := &base16Palette{}
-	parseKittyFile(filepath.Join(dir, "kitty.conf"), p, 0)
-	parseKittyFile(filepath.Join(dir, "current-theme.conf"), p, 0)
+	for _, dir := range dirs {
+		dir = filepath.Clean(dir)
+		parseKittyFile(filepath.Join(dir, "kitty.conf"), p, 0)
+		parseKittyFile(filepath.Join(dir, "current-theme.conf"), p, 0)
+	}
 
 	if !p.isUsable() {
 		return nil

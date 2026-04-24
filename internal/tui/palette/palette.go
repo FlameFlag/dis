@@ -118,6 +118,30 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
+// configPaths returns candidate config paths for appName under XDG_CONFIG_HOME
+// (if set), $HOME/.config, and macOS's ~/Library/Application Support. Each
+// filename in files is joined under every base. macOS paths are skipped when
+// includeMacOS is false.
+func configPaths(appName string, includeMacOS bool, files ...string) []string {
+	var roots []string
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		roots = append(roots, filepath.Join(xdg, appName))
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		if includeMacOS {
+			roots = append(roots, filepath.Join(home, "Library", "Application Support", appName))
+		}
+		roots = append(roots, filepath.Join(home, ".config", appName))
+	}
+	out := make([]string, 0, len(roots)*len(files))
+	for _, root := range roots {
+		for _, f := range files {
+			out = append(out, filepath.Join(root, f))
+		}
+	}
+	return out
+}
+
 func expandPath(p, baseDir string) string {
 	if filepath.IsAbs(p) {
 		return p

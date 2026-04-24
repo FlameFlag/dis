@@ -10,21 +10,7 @@ import (
 )
 
 func ghosttyConfigPath() string {
-	var candidates []string
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		candidates = append(candidates,
-			filepath.Join(xdg, "ghostty", "config.ghostty"),
-			filepath.Join(xdg, "ghostty", "config"),
-		)
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates,
-			filepath.Join(home, "Library", "Application Support", "ghostty", "config.ghostty"),
-			filepath.Join(home, "Library", "Application Support", "ghostty", "config"),
-			filepath.Join(home, ".config", "ghostty", "config.ghostty"),
-			filepath.Join(home, ".config", "ghostty", "config"),
-		)
-	}
+	candidates := configPaths("ghostty", true, "config.ghostty", "config")
 	return util.FirstExistingFile(candidates...)
 }
 
@@ -118,7 +104,7 @@ func resolveGhosttyTheme(name string, p *base16Palette, cfgPath string) {
 	for _, dir := range searchDirs {
 		for _, candidate := range []string{name, name + ".ghostty"} {
 			themePath := filepath.Join(dir, candidate)
-			if _, err := os.Stat(themePath); err == nil {
+			if util.FileExists(themePath) {
 				parseGhosttyColors(themePath, p)
 				return
 			}

@@ -41,18 +41,12 @@ type alacrittyConfig struct {
 }
 
 func alacrittyConfigPath() string {
-	var candidates []string
+	candidates := configPaths("alacritty", false, "alacritty.toml")
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		candidates = append(candidates,
-			filepath.Join(xdg, "alacritty", "alacritty.toml"),
-			filepath.Join(xdg, "alacritty.toml"),
-		)
+		candidates = append(candidates, filepath.Join(xdg, "alacritty.toml"))
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates,
-			filepath.Join(home, ".config", "alacritty", "alacritty.toml"),
-			filepath.Join(home, ".alacritty.toml"),
-		)
+		candidates = append(candidates, filepath.Join(home, ".alacritty.toml"))
 	}
 	return util.FirstExistingFile(candidates...)
 }
