@@ -184,40 +184,36 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh
 	}
 }
 
+// waitForChan returns a tea.Cmd that blocks on ch and wraps the received
+// value with wrap. A closed channel produces wrap's zero-value message.
+func waitForChan[T any, M tea.Msg](ch <-chan T, wrap func(T) M) tea.Cmd {
+	return func() tea.Msg {
+		v, ok := <-ch
+		if !ok {
+			var zero T
+			return wrap(zero)
+		}
+		return wrap(v)
+	}
+}
+
 func (m Model) Init() tea.Cmd {
 	var cmds []tea.Cmd
 
 	if m.storyboardCh != nil {
-		ch := m.storyboardCh
-		cmds = append(cmds, func() tea.Msg {
-			data, ok := <-ch
-			if !ok {
-				return StoryboardReadyMsg{}
-			}
-			return StoryboardReadyMsg{Data: data}
-		})
+		cmds = append(cmds, waitForChan(m.storyboardCh, func(d *storyboard.StoryboardData) StoryboardReadyMsg {
+			return StoryboardReadyMsg{Data: d}
+		}))
 	}
-
 	if m.transcriptCh != nil {
-		ch := m.transcriptCh
-		cmds = append(cmds, func() tea.Msg {
-			t, ok := <-ch
-			if !ok {
-				return TranscriptReadyMsg{}
-			}
+		cmds = append(cmds, waitForChan(m.transcriptCh, func(t subtitle.Transcript) TranscriptReadyMsg {
 			return TranscriptReadyMsg{Transcript: t}
-		})
+		}))
 	}
-
 	if m.sponsorSegsCh != nil {
-		ch := m.sponsorSegsCh
-		cmds = append(cmds, func() tea.Msg {
-			segs, ok := <-ch
-			if !ok {
-				return SponsorSegsReadyMsg{}
-			}
-			return SponsorSegsReadyMsg{Segments: segs}
-		})
+		cmds = append(cmds, waitForChan(m.sponsorSegsCh, func(s []sponsorblock.Segment) SponsorSegsReadyMsg {
+			return SponsorSegsReadyMsg{Segments: s}
+		}))
 	}
 
 	if m.isLoading() {
