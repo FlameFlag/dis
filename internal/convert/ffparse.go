@@ -3,6 +3,9 @@ package convert
 import (
 	"regexp"
 	"strconv"
+	"sync"
+
+	"dis/internal/tui"
 )
 
 // FFmpegTimeRegex matches "time=HH:MM:SS.ms" in FFmpeg output.
@@ -22,6 +25,32 @@ func ParseFFmpegTime(line string) float64 {
 	frac, _ := strconv.ParseFloat("0."+matches[4], 64)
 
 	return hours*3600 + minutes*60 + seconds + frac
+}
+
+// MakeProgressCallback builds a stderr-line handler that parses FFmpeg's
+// time= field and reports monotonically-increasing percent against totalDuration.
+// Safe to call from a goroutine. A no-op is returned if onProgress is nil
+// or totalDuration is non-positive.
+func MakeProgressCallback(totalDuration float64, onProgress func(tui.ProgressInfo)) func(string) {
+	if onProgress == nil || totalDuration <= 0 {
+		return func(string) {}
+	}
+	var mu sync.Mutex
+	var maxPct float64
+	return func(line string) {
+		t := ParseFFmpegTime(line)
+		if t <= 0 {
+			return
+		}
+		pct := min(t/totalDuration*100, 100)
+		mu.Lock()
+		if pct > maxPct {
+			maxPct = pct
+		}
+		p := maxPct
+		mu.Unlock()
+		onProgress(tui.ProgressInfo{Percent: p})
+	}
 }
 
 // ScanFFmpegLines is a bufio.SplitFunc that splits on \n or \r,

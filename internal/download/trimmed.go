@@ -7,7 +7,6 @@ import (
 	"dis/internal/tui"
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	"github.com/charmbracelet/log"
 )
@@ -23,28 +22,9 @@ func downloadTrimmed(ctx context.Context, rawURL string, s *config.Settings, tri
 	dl.DownloadSections(trim.DownloadSection())
 	dl.ForceKeyframesAtCuts()
 
-	var mu sync.Mutex
-	var maxPct float64
-
-	stderrFn := func(line string) {
-		if onProgress == nil || trim.Duration <= 0 {
-			return
-		}
-		if t := convert.ParseFFmpegTime(line); t > 0 {
-			pct := min(t/trim.Duration*100, 100)
-			mu.Lock()
-			if pct > maxPct {
-				maxPct = pct
-			}
-			p := maxPct
-			mu.Unlock()
-			onProgress(tui.ProgressInfo{Percent: p})
-		}
-	}
-
 	log.Info("Downloading video section", "section", trim.DownloadSection())
 
-	_, err := runInProcessGroup(ctx, dl, rawURL, stderrFn)
+	_, err := runInProcessGroup(ctx, dl, rawURL, convert.MakeProgressCallback(trim.Duration, onProgress))
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}

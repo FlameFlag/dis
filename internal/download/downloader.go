@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -127,25 +126,7 @@ func DownloadChaptersCombined(ctx context.Context, rawURL string, s *config.Sett
 		totalDuration += ch.Duration()
 	}
 
-	var stderrFn func(string)
-	if onProgress != nil && totalDuration > 0 {
-		var mu sync.Mutex
-		var maxPct float64
-		stderrFn = func(line string) {
-			if t := convert.ParseFFmpegTime(line); t > 0 {
-				pct := min(t/totalDuration*100, 100)
-				mu.Lock()
-				if pct > maxPct {
-					maxPct = pct
-				}
-				p := maxPct
-				mu.Unlock()
-				onProgress(tui.ProgressInfo{Percent: p})
-			}
-		}
-	}
-
-	_, err = runInProcessGroup(ctx, dl, rawURL, stderrFn)
+	_, err = runInProcessGroup(ctx, dl, rawURL, convert.MakeProgressCallback(totalDuration, onProgress))
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
 	}
