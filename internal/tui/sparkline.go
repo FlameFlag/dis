@@ -1,10 +1,8 @@
 package tui
 
 import (
-	"fmt"
 	"math"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -45,18 +43,3 @@ var (
 	progressETAStyle = lipgloss.NewStyle().Foreground(ColorOverlay0)
 	progressPctStyle = lipgloss.NewStyle().Foreground(ColorTeal)
 )
-
-// formatETAShort returns a short ETA string like "4s" or "1m12s".
-func formatETAShort(d time.Duration) string {
-	d = max(d.Round(time.Second), 0)
-	s := int(math.Round(d.Seconds()))
-	if s < 60 {
-		return fmt.Sprintf("%ds", s)
-	}
-	m := s / 60
-	s = s % 60
-	if s == 0 {
-		return fmt.Sprintf("%dm", m)
-	}
-	return fmt.Sprintf("%dm%ds", m, s)
-}

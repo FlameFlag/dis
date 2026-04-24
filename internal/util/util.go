@@ -7,61 +7,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 )
-
-// FormatDurationShort formats seconds as "M:SS".
-func FormatDurationShort(seconds float64) string {
-	seconds = math.Abs(seconds)
-	d := time.Duration(seconds * float64(time.Second))
-	mins := int(d.Minutes())
-	secs := int(d.Seconds()) % 60
-	return fmt.Sprintf("%d:%02d", mins, secs)
-}
-
-// FormatDurationMillis formats seconds as "M:SS.mmm" with millisecond precision.
-// The ".mmm" suffix is omitted when milliseconds are zero.
-func FormatDurationMillis(seconds float64) string {
-	seconds = math.Abs(seconds)
-	d := time.Duration(seconds * float64(time.Second))
-	mins := int(d.Minutes())
-	secs := int(d.Seconds()) % 60
-	ms := int(d.Milliseconds()) % 1000
-	if ms == 0 {
-		return fmt.Sprintf("%d:%02d", mins, secs)
-	}
-	return fmt.Sprintf("%d:%02d.%03d", mins, secs, ms)
-}
-
-// ParseTimeValue parses "MM:SS", "MM:SS.cs", or a plain float string into seconds.
-func ParseTimeValue(input string) (float64, error) {
-	input = strings.TrimSpace(input)
-
-	// Try as plain number (seconds, possibly with centiseconds)
-	if f, err := strconv.ParseFloat(input, 64); err == nil {
-		return f, nil
-	}
-
-	// Try as MM:SS or MM:SS.CS
-	minStr, secStr, ok := strings.Cut(input, ":")
-	if !ok {
-		return 0, fmt.Errorf("unrecognized time format")
-	}
-
-	minutes, err := strconv.Atoi(minStr)
-	if err != nil {
-		return 0, fmt.Errorf("invalid minutes: %w", err)
-	}
-
-	secs, err := strconv.ParseFloat(secStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid seconds: %w", err)
-	}
-
-	return float64(minutes)*60 + secs, nil
-}
 
 // FileExists checks if path exists and is not a directory.
 func FileExists(path string) bool {

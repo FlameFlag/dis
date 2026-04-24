@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"dis/internal/util"
 	"errors"
 	"fmt"
 	"math"
@@ -166,7 +167,7 @@ func (m progressModel) viewBar() string {
 		elapsed := time.Since(m.startTime).Seconds()
 		if elapsed > 0.5 {
 			remaining := elapsed / m.info.Percent * (100 - m.info.Percent)
-			etaStr = "  ETA " + formatETAShort(time.Duration(remaining*float64(time.Second)))
+			etaStr = "  ETA " + util.FormatETAShort(time.Duration(remaining*float64(time.Second)))
 		}
 	}
 
