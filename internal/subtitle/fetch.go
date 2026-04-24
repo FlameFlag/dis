@@ -3,9 +3,8 @@ package subtitle
 import (
 	"context"
 	"dis/internal/cache"
+	"dis/internal/util"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -133,10 +132,11 @@ func fetchAndParse(ctx context.Context, entries []*ytdlp.ExtractedSubtitle) (Tra
 		return nil, fmt.Errorf("no subtitle entries with URLs")
 	}
 
-	data, err := httpGet(ctx, entry.URL, entry.HTTPHeaders)
+	body, err := util.HTTPGet(ctx, entry.URL, entry.HTTPHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("fetching subtitle: %w", err)
 	}
+	data := string(body)
 
 	switch selectedFmt {
 	case fmtJSON3:
@@ -152,30 +152,4 @@ func fetchAndParse(ctx context.Context, entries []*ytdlp.ExtractedSubtitle) (Tra
 		}
 		return ParseSRT(data)
 	}
-}
-
-func httpGet(ctx context.Context, url string, headers map[string]string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d fetching subtitle", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
 }
