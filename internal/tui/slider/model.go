@@ -6,7 +6,6 @@ import (
 	"dis/internal/storyboard"
 	"dis/internal/subtitle"
 	"fmt"
-	"math"
 	"os/exec"
 	"time"
 
@@ -112,29 +111,6 @@ type trimRange struct {
 	end   float64
 }
 
-// StoryboardReadyMsg is sent when background storyboard fetch completes.
-type StoryboardReadyMsg struct {
-	Data *storyboard.StoryboardData
-}
-
-// TranscriptReadyMsg is sent when background transcript fetch completes.
-type TranscriptReadyMsg struct {
-	Transcript subtitle.Transcript
-}
-
-// SponsorSegsReadyMsg is sent when background SponsorBlock fetch completes.
-type SponsorSegsReadyMsg struct {
-	Segments []sponsorblock.Segment
-}
-
-type animTickMsg struct{}
-
-func animTick() tea.Cmd {
-	return tea.Tick(time.Second/AnimFPS, func(time.Time) tea.Msg {
-		return animTickMsg{}
-	})
-}
-
 var brailleSpinner = spinner.Spinner{
 	Frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 	FPS:    time.Second / 10,
@@ -143,14 +119,6 @@ var brailleSpinner = spinner.Spinner{
 func (m Model) isLoading() bool {
 	return m.storyboardCh != nil ||
 		m.transcriptCh != nil || m.sponsorSegsCh != nil
-}
-
-func (m *Model) triggerAnim() tea.Cmd {
-	if !m.animating {
-		m.animating = true
-		return animTick()
-	}
-	return nil
 }
 
 // New creates a new trim slider model.
@@ -182,122 +150,6 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh
 		animStartPos:    0,
 		animEndPos:      duration,
 	}
-}
-
-// waitForChan returns a tea.Cmd that blocks on ch and wraps the received
-// value with wrap. A closed channel produces wrap's zero-value message.
-func waitForChan[T any, M tea.Msg](ch <-chan T, wrap func(T) M) tea.Cmd {
-	return func() tea.Msg {
-		v, ok := <-ch
-		if !ok {
-			var zero T
-			return wrap(zero)
-		}
-		return wrap(v)
-	}
-}
-
-func (m Model) Init() tea.Cmd {
-	var cmds []tea.Cmd
-
-	if m.storyboardCh != nil {
-		cmds = append(cmds, waitForChan(m.storyboardCh, func(d *storyboard.StoryboardData) StoryboardReadyMsg {
-			return StoryboardReadyMsg{Data: d}
-		}))
-	}
-	if m.transcriptCh != nil {
-		cmds = append(cmds, waitForChan(m.transcriptCh, func(t subtitle.Transcript) TranscriptReadyMsg {
-			return TranscriptReadyMsg{Transcript: t}
-		}))
-	}
-	if m.sponsorSegsCh != nil {
-		cmds = append(cmds, waitForChan(m.sponsorSegsCh, func(s []sponsorblock.Segment) SponsorSegsReadyMsg {
-			return SponsorSegsReadyMsg{Segments: s}
-		}))
-	}
-
-	if m.isLoading() {
-		cmds = append(cmds, m.loadingSpinner.Tick)
-	}
-
-	return tea.Batch(cmds...)
-}
-
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		return m, nil
-	case StoryboardReadyMsg:
-		m.storyboard = msg.Data
-		m.storyboardCh = nil
-		return m, nil
-	case TranscriptReadyMsg:
-		m.transcript = msg.Transcript
-		m.transcriptCh = nil
-		if len(m.transcript) > 0 {
-			m.words = m.transcript.Words()
-			m.selected = make([]bool, len(m.words))
-		}
-		return m, nil
-	case SponsorSegsReadyMsg:
-		m.sponsorSegments = msg.Segments
-		m.sponsorSegsCh = nil
-		return m, nil
-	case spinner.TickMsg:
-		if m.isLoading() {
-			var cmd tea.Cmd
-			m.loadingSpinner, cmd = m.loadingSpinner.Update(msg)
-			return m, cmd
-		}
-		return m, nil
-	case animTickMsg:
-		if m.warning != "" && time.Now().After(m.warningExpiry) {
-			m.warning = ""
-		}
-		if !m.animating {
-			return m, nil
-		}
-		m.animStartPos, m.animStartVel = m.animSpring.Update(m.animStartPos, m.animStartVel, m.startPos)
-		m.animEndPos, m.animEndVel = m.animSpring.Update(m.animEndPos, m.animEndVel, m.endPos)
-		// Settle threshold: half a column width in seconds
-		threshold := m.duration / float64(m.sliderWidth()) / 2
-		startSettled := math.Abs(m.animStartPos-m.startPos) < threshold && math.Abs(m.animStartVel) < threshold
-		endSettled := math.Abs(m.animEndPos-m.endPos) < threshold && math.Abs(m.animEndVel) < threshold
-		if startSettled && endSettled {
-			m.animStartPos = m.startPos
-			m.animEndPos = m.endPos
-			m.animStartVel = 0
-			m.animEndVel = 0
-			m.animating = false
-			return m, nil
-		}
-		return m, animTick()
-	case tea.KeyMsg:
-		switch m.mode {
-		case modeSearch, modeSearchSelect:
-			return m.handleSearchMode(msg)
-		case modeInput:
-			return m.handleInputMode(msg)
-		case modeSelect:
-			return m.handleSelectMode(msg)
-		default:
-			return m.handleNavigation(msg)
-		}
-	}
-	// Route cursor blink messages to active textinput
-	switch {
-	case m.isSearchMode():
-		var cmd tea.Cmd
-		m.searchInput, cmd = m.searchInput.Update(msg)
-		return m, cmd
-	case m.mode == modeInput:
-		var cmd tea.Cmd
-		m.timeInput, cmd = m.timeInput.Update(msg)
-		return m, cmd
-	}
-	return m, nil
 }
 
 // Result returns the TrimResult if confirmed, nil if cancelled.
