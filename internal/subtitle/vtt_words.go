@@ -30,7 +30,7 @@ func extractWordTimings(rawText string, cueStart float64) []WordTiming {
 
 	for i, match := range matches {
 		// match[2]:match[3] is the timestamp capture group
-		ts, err := parseVTTTimestamp(rawText[match[2]:match[3]])
+		ts, err := parseTimestamp(rawText[match[2]:match[3]], vttTimestampRe)
 		if err != nil {
 			continue
 		}
