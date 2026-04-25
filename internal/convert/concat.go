@@ -60,9 +60,11 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 	codec := config.ParseCodec(s.VideoCodec)
 	n := len(segments)
 
-	// Build filter_complex
-	var fc strings.Builder
-	var concatInputs strings.Builder
+	// Build filter_complex as a list of segments joined with ';'.
+	var (
+		filters      []string
+		concatInputs strings.Builder
+	)
 
 	for i, seg := range segments {
 		start := seg.Start
@@ -73,46 +75,40 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 			if vsf := videoSpeedFilter(s.Speed); vsf != "" {
 				vf += "," + vsf
 			}
-			fmt.Fprintf(&fc, "%s[v%d];", vf, i)
+			filters = append(filters, fmt.Sprintf("%s[v%d]", vf, i))
+			fmt.Fprintf(&concatInputs, "[v%d]", i)
 		}
 		if info.HasAudio {
 			af := fmt.Sprintf("[0:a]atrim=start=%g:end=%g,asetpts=PTS-STARTPTS", start, end)
 			if asf := audioSpeedFilter(s.Speed); asf != "" {
 				af += "," + asf
 			}
-			fmt.Fprintf(&fc, "%s[a%d];", af, i)
-		}
-
-		if info.HasVideo {
-			fmt.Fprintf(&concatInputs, "[v%d]", i)
-		}
-		if info.HasAudio {
+			filters = append(filters, fmt.Sprintf("%s[a%d]", af, i))
 			fmt.Fprintf(&concatInputs, "[a%d]", i)
 		}
 	}
 
-	// Concat
-	vOut := 0
-	aOut := 0
+	vOut, aOut := 0, 0
+	concatStep := concatInputs.String() + fmt.Sprintf("concat=n=%d", n)
 	if info.HasVideo {
 		vOut = 1
 	}
 	if info.HasAudio {
 		aOut = 1
 	}
-
-	fmt.Fprintf(&fc, "%sconcat=n=%d:v=%d:a=%d", concatInputs.String(), n, vOut, aOut)
+	concatStep += fmt.Sprintf(":v=%d:a=%d", vOut, aOut)
 	if info.HasVideo {
-		fc.WriteString("[outv]")
+		concatStep += "[outv]"
 	}
 	if info.HasAudio {
-		fc.WriteString("[outa]")
+		concatStep += "[outa]"
 	}
+	filters = append(filters, concatStep)
 
 	args := []string{
 		"-fflags", "+genpts",
 		"-i", input,
-		"-filter_complex", fc.String(),
+		"-filter_complex", strings.Join(filters, ";"),
 	}
 
 	if info.HasVideo {
