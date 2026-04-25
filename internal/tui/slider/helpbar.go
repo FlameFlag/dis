@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"dis/internal/tui/slider/style"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -8,9 +9,9 @@ import (
 
 func helpPill(key, desc string) string {
 	if strings.HasPrefix(key, "[") && strings.HasSuffix(key, "]") {
-		return helpPillStyle.Render(desc + " " + key)
+		return style.HelpPill.Render(desc + " " + key)
 	}
-	return helpPillStyle.Render(desc + " [" + key + "]")
+	return style.HelpPill.Render(desc + " [" + key + "]")
 }
 
 func (m Model) renderHelpBar() string {
@@ -25,10 +26,10 @@ func (m Model) renderHelpBar() string {
 
 	if m.isSelectMode() {
 		pills := []string{
-			helpPill("←→", "word"),
+			helpPill("←->", "word"),
 			helpPill("↑↓", "cue"),
 			helpPill("␣", "toggle"),
-			helpPill("shift+← shift+→", "range"),
+			helpPill("shift+← shift+->", "range"),
 			helpPill("p", "sentence"),
 			helpPill("a", "trim range"),
 			helpPill("d", "clear"),
@@ -42,7 +43,7 @@ func (m Model) renderHelpBar() string {
 	if m.transcript != nil {
 		pills := []string{
 			helpPill("tab", "switch"),
-			helpPill("←→", "1s"),
+			helpPill("←->", "1s"),
 			helpPill("↑↓", "1m"),
 			helpPill("[]", "snap"),
 			helpPill("/", "search"),
@@ -58,7 +59,7 @@ func (m Model) renderHelpBar() string {
 
 	pills := []string{
 		helpPill("tab", "switch"),
-		helpPill("←→", "1s"),
+		helpPill("←->", "1s"),
 		helpPill("↑↓", "1m"),
 		helpPill("shift", "10ms"),
 		helpPill("space", "type"),

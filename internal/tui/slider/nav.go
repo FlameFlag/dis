@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"dis/internal/tui/slider/keys"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"

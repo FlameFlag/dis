@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"dis/internal/tui/slider/style"
 	"fmt"
 	"strings"
 
@@ -58,9 +59,9 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	}
 
 	// Right pane border color: peach in select mode, default otherwise
-	divColor := borderStyle
+	divColor := style.Border
 	if m.isSelectMode() {
-		divColor = accentStyle
+		divColor = style.Accent
 	}
 
 	// Build right pane title
@@ -70,9 +71,9 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 
 	// Top border: ┌─ Timeline ─────────────┬─ Transcript ──────────┐
 	leftTitle := " Timeline "
-	topLeft := "─" + borderStyle.Render(leftTitle) + borderStyle.Render(strings.Repeat("─", max(leftW-lipgloss.Width(leftTitle)-1, 0)))
+	topLeft := "─" + style.Border.Render(leftTitle) + style.Border.Render(strings.Repeat("─", max(leftW-lipgloss.Width(leftTitle)-1, 0)))
 	topRight := "─" + divColor.Render(rightTitle) + divColor.Render(strings.Repeat("─", max(rightW-lipgloss.Width(rightTitle)-1, 0)))
-	b.WriteString(borderStyle.Render("┌") + borderStyle.Render(topLeft) + divColor.Render("┬") + divColor.Render(topRight) + divColor.Render("┐") + "\n")
+	b.WriteString(style.Border.Render("┌") + style.Border.Render(topLeft) + divColor.Render("┬") + divColor.Render(topRight) + divColor.Render("┐") + "\n")
 
 	// Body rows
 	leftPad := lipgloss.NewStyle().Width(leftW)
@@ -80,18 +81,18 @@ func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW
 	for i := range maxH {
 		ll := leftPad.Render(leftLines[i])
 		rl := rightPad.Render(rightLines[i])
-		b.WriteString(borderStyle.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
+		b.WriteString(style.Border.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
 	}
 
 	// Search input sits above the bottom border if active
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
 		searchPad := max(m.width-2-lipgloss.Width(searchLine), 0)
-		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
+		b.WriteString(style.Border.Render("│") + searchLine + strings.Repeat(" ", searchPad) + style.Border.Render("│") + "\n")
 	}
 
 	// Bottom border
-	b.WriteString(borderStyle.Render("└") + borderStyle.Render(strings.Repeat("─", leftW)) + borderStyle.Render("┴") + borderStyle.Render(strings.Repeat("─", rightW)) + borderStyle.Render("┘") + "\n")
+	b.WriteString(style.Border.Render("└") + style.Border.Render(strings.Repeat("─", leftW)) + style.Border.Render("┴") + style.Border.Render(strings.Repeat("─", rightW)) + style.Border.Render("┘") + "\n")
 
 	// Help bar below the box
 	b.WriteString(helpBar)
@@ -108,22 +109,22 @@ func (m Model) renderSingleColumnLayout(content string, innerW int, helpBar stri
 	var b strings.Builder
 
 	// Top border
-	b.WriteString(borderStyle.Render("┌") + borderStyle.Render("─ Timeline "+strings.Repeat("─", max(innerW-11, 0))) + borderStyle.Render("┐") + "\n")
+	b.WriteString(style.Border.Render("┌") + style.Border.Render("─ Timeline "+strings.Repeat("─", max(innerW-11, 0))) + style.Border.Render("┐") + "\n")
 
 	innerPad := lipgloss.NewStyle().Width(innerW)
 	for _, line := range lines {
-		b.WriteString(borderStyle.Render("│") + innerPad.Render(line) + borderStyle.Render("│") + "\n")
+		b.WriteString(style.Border.Render("│") + innerPad.Render(line) + style.Border.Render("│") + "\n")
 	}
 
 	// Search input
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
 		searchPad := max(innerW-lipgloss.Width(searchLine), 0)
-		b.WriteString(borderStyle.Render("│") + searchLine + strings.Repeat(" ", searchPad) + borderStyle.Render("│") + "\n")
+		b.WriteString(style.Border.Render("│") + searchLine + strings.Repeat(" ", searchPad) + style.Border.Render("│") + "\n")
 	}
 
 	// Bottom border
-	b.WriteString(borderStyle.Render("└") + borderStyle.Render(strings.Repeat("─", innerW)) + borderStyle.Render("┘") + "\n")
+	b.WriteString(style.Border.Render("└") + style.Border.Render(strings.Repeat("─", innerW)) + style.Border.Render("┘") + "\n")
 
 	// Help bar below the box
 	b.WriteString(helpBar)

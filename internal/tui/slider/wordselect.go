@@ -2,6 +2,7 @@ package slider
 
 import (
 	"dis/internal/tui"
+	"dis/internal/tui/slider/style"
 	"dis/internal/util"
 	"fmt"
 	"strings"
@@ -70,7 +71,7 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 
 	// Scroll indicator above
 	if startGroup > 0 {
-		lines = append(lines, faintStyle.Render(fmt.Sprintf("  ▲ %d more", startGroup)))
+		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▲ %d more", startGroup)))
 	}
 
 	cursorTime := m.words[m.sel.cursor].Start
@@ -78,11 +79,11 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 	for gi := startGroup; gi < endGroup; gi++ {
 		g := groups[gi]
 		timestamp := util.FormatDurationShort(m.words[g.startIdx].Start)
-		tsPrefix := dimStyle.Render(fmt.Sprintf("%-5s ", timestamp))
+		tsPrefix := style.Dim.Render(fmt.Sprintf("%-5s ", timestamp))
 
 		marker := "   "
 		if gi == cursorGroup {
-			marker = accentStyle.Render(" › ")
+			marker = style.Accent.Render(" › ")
 		}
 
 		groupPassed := m.words[g.endIdx].End <= cursorTime
@@ -124,16 +125,16 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 			case isCursor && isSelected:
 				line.WriteString(cursorSelectedStyle.Render(wordText))
 			case isCursor:
-				line.WriteString(reverseStyle.Render(wordText))
+				line.WriteString(style.Reverse.Render(wordText))
 			case isSelected:
 				line.WriteString(selectedStyle.Render(wordText))
 			case isSearchMatch:
-				line.WriteString(warmStyle.Render(wordText))
+				line.WriteString(style.Warm.Render(wordText))
 			case groupPassed:
-				line.WriteString(faintStyle.Render(wordText))
+				line.WriteString(style.Faint.Render(wordText))
 			default:
 				if cat := m.sponsorCategoryAt(m.words[i].Start); cat != "" {
-					if sc, ok := sponsorCategories[cat]; ok {
+					if sc, ok := style.SponsorCategories[cat]; ok {
 						line.WriteString(sc.Color.Render(wordText))
 					} else {
 						line.WriteString(wordText)
@@ -156,7 +157,7 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 
 	// Scroll indicator below
 	if endGroup < len(groups) {
-		lines = append(lines, faintStyle.Render(fmt.Sprintf("  ▼ %d more", len(groups)-endGroup)))
+		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▼ %d more", len(groups)-endGroup)))
 	}
 
 	return strings.Join(lines, "\n")

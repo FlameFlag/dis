@@ -3,6 +3,8 @@ package slider
 import (
 	"bytes"
 	"dis/internal/sponsorblock"
+	"dis/internal/tui/slider/style"
+	"dis/internal/tui/slider/textbuf"
 	"dis/internal/util"
 	"fmt"
 	"strings"
@@ -45,16 +47,16 @@ func (m Model) renderChapterLabels(width int) string {
 		if start < 0 {
 			continue
 		}
-		if bufHasOverlap(buf, start, len(lbl)) {
+		if textbuf.HasOverlap(buf, start, len(lbl)) {
 			start = ch.pos + 1
 			if start+len(lbl) > width {
 				continue
 			}
-			if bufHasOverlap(buf, start, len(lbl)) {
+			if textbuf.HasOverlap(buf, start, len(lbl)) {
 				continue
 			}
 		}
-		bufPlace(buf, start, lbl)
+		textbuf.Place(buf, start, lbl)
 	}
 
 	result := string(buf)
@@ -70,7 +72,7 @@ func (m Model) renderChapterLabels(width int) string {
 			}
 		} else {
 			if inText {
-				b.WriteString(warmStyle.Render(result[textStart:i]))
+				b.WriteString(style.Warm.Render(result[textStart:i]))
 				textStart = i
 				inText = false
 			}
@@ -120,9 +122,9 @@ func (m Model) renderSponsorSegments(width int) string {
 			b.WriteByte(' ')
 			continue
 		}
-		sc, ok := sponsorCategories[cats[i]]
+		sc, ok := style.SponsorCategories[cats[i]]
 		if !ok {
-			sc.Color = dimStyle
+			sc.Color = style.Dim
 		}
 		if cats[i] == sponsorblock.CategoryHighlight {
 			b.WriteString(sc.Color.Render("★"))
@@ -148,7 +150,7 @@ func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 
 	headerLabel := fmt.Sprintf("── splits (%d) ", len(m.splits))
 	fillLen := max(panelWidth-len(headerLabel), 1)
-	lines = append(lines, " "+dimStyle.Render(headerLabel+strings.Repeat("─", fillLen)))
+	lines = append(lines, " "+style.Dim.Render(headerLabel+strings.Repeat("─", fillLen)))
 
 	hidden := 0
 	visible := m.splits
@@ -158,22 +160,22 @@ func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 	}
 
 	if hidden > 0 {
-		lines = append(lines, "   "+faintStyle.Render(fmt.Sprintf("… %d more above", hidden)))
+		lines = append(lines, "   "+style.Faint.Render(fmt.Sprintf("… %d more above", hidden)))
 	}
 
 	for i, s := range visible {
 		dur := s.end - s.start
 		line := fmt.Sprintf("   %s  %s - %s  %s",
-			faintStyle.Render(fmt.Sprintf("%d", hidden+i+1)),
-			valueStyle.Render(util.FormatDurationShort(s.start)),
-			valueStyle.Render(util.FormatDurationShort(s.end)),
-			faintStyle.Render("("+util.FormatDurationShort(dur)+")"))
+			style.Faint.Render(fmt.Sprintf("%d", hidden+i+1)),
+			style.Value.Render(util.FormatDurationShort(s.start)),
+			style.Value.Render(util.FormatDurationShort(s.end)),
+			style.Faint.Render("("+util.FormatDurationShort(dur)+")"))
 		lines = append(lines, line)
 	}
 
 	footerLabel := fmt.Sprintf("──────── total %s ", util.FormatDurationShort(totalDur))
 	footerFill := max(panelWidth-len(footerLabel), 1)
-	lines = append(lines, " "+dimStyle.Render(footerLabel+strings.Repeat("─", footerFill)))
+	lines = append(lines, " "+style.Dim.Render(footerLabel+strings.Repeat("─", footerFill)))
 
 	return lines
 }

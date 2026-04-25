@@ -1,6 +1,7 @@
 package slider
 
 import (
+	"dis/internal/tui/slider/style"
 	"dis/internal/util"
 	"strings"
 
@@ -28,17 +29,17 @@ func (m Model) renderIntegratedSlider(width int) string {
 		// Handles (#3: chunkier handles)
 		if i == startIdx {
 			if m.adjustingStart {
-				out.WriteString(handleActiveStyle.Render("▌"))
+				out.WriteString(style.HandleActive.Render("▌"))
 			} else {
-				out.WriteString(handleInactiveStyle.Render("▌"))
+				out.WriteString(style.HandleInactive.Render("▌"))
 			}
 			continue
 		}
 		if i == endIdx {
 			if !m.adjustingStart {
-				out.WriteString(handleActiveStyle.Render("▐"))
+				out.WriteString(style.HandleActive.Render("▐"))
 			} else {
-				out.WriteString(handleInactiveStyle.Render("▐"))
+				out.WriteString(style.HandleInactive.Render("▐"))
 			}
 			continue
 		}
@@ -47,7 +48,7 @@ func (m Model) renderIntegratedSlider(width int) string {
 			// #2: gradient edges + #7: sponsor colors
 			out.WriteString(m.renderSelectedCol(i, startIdx, endIdx, sponsorColor))
 		} else {
-			out.WriteString(unselectedTrack.Render("─"))
+			out.WriteString(style.UnselectedTrack.Render("─"))
 		}
 	}
 
@@ -63,10 +64,10 @@ func (m Model) renderSelectedCol(col, startIdx, endIdx int, sponsorColor []lipgl
 	}
 
 	distFromEdge := min(col-startIdx, endIdx-col)
-	if distFromEdge <= len(trackGradient) {
-		return trackGradient[max(distFromEdge-1, 0)].Render("━")
+	if distFromEdge <= len(style.Track) {
+		return style.Track[max(distFromEdge-1, 0)].Render("━")
 	}
-	return selectedTrack.Render("━")
+	return style.SelectedTrack.Render("━")
 }
 
 // renderStartLabel renders the start-handle timestamp ABOVE the track.
@@ -83,12 +84,12 @@ func (m Model) renderStartLabel(width int) string {
 		pos = width - len(label)
 	}
 
-	style := faintStyle
+	s := style.Faint
 	if m.adjustingStart {
-		style = accentBold
+		s = style.AccentBold
 	}
 
-	return strings.Repeat(" ", pos) + style.Render(label)
+	return strings.Repeat(" ", pos) + s.Render(label)
 }
 
 // renderEndLabel renders the end-handle timestamp BELOW the track.
@@ -105,12 +106,12 @@ func (m Model) renderEndLabel(width int) string {
 		pos = width - len(label)
 	}
 
-	style := faintStyle
+	s := style.Faint
 	if !m.adjustingStart {
-		style = accentBold
+		s = style.AccentBold
 	}
 
-	return strings.Repeat(" ", pos) + style.Render(label)
+	return strings.Repeat(" ", pos) + s.Render(label)
 }
 
 // sponsorColorMap returns per-column sponsor colors for the track.
@@ -120,7 +121,7 @@ func (m Model) sponsorColorMap(width int) []lipgloss.Color {
 		return colors
 	}
 	for _, seg := range m.sponsorSegments {
-		sc, ok := sponsorCategories[seg.Category]
+		sc, ok := style.SponsorCategories[seg.Category]
 		if !ok {
 			continue
 		}
@@ -176,13 +177,13 @@ func (m Model) renderSliderWithSegments(width int) string {
 	var out strings.Builder
 	for i := range width {
 		if i == cursorCol {
-			out.WriteString(handleActiveStyle.Render("▌"))
+			out.WriteString(style.HandleActive.Render("▌"))
 			continue
 		}
 		if cols[i] == 's' {
-			out.WriteString(selectedTrack.Render("━"))
+			out.WriteString(style.SelectedTrack.Render("━"))
 		} else {
-			out.WriteString(unselectedTrack.Render("─"))
+			out.WriteString(style.UnselectedTrack.Render("─"))
 		}
 	}
 	return out.String()

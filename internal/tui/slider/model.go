@@ -5,6 +5,7 @@ import (
 	"dis/internal/sponsorblock"
 	"dis/internal/storyboard"
 	"dis/internal/subtitle"
+	"dis/internal/tui/slider/keys"
 	"fmt"
 	"os/exec"
 	"time"

@@ -1,6 +1,9 @@
 package slider
 
-import "fmt"
+import (
+	"dis/internal/tui/slider/style"
+	"fmt"
+)
 
 func (m Model) renderRightPaneWithHeight(width int, height int) string {
 	if m.isSelectMode() && len(m.words) > 0 {
@@ -17,5 +20,5 @@ func (m Model) renderSearchInput() string {
 	if m.search.input.Value() != "" {
 		matchInfo = fmt.Sprintf("  (%d matches)", len(m.search.results))
 	}
-	return " " + accentStyle.Render("/") + " " + m.search.input.View() + faintStyle.Render(matchInfo)
+	return " " + style.Accent.Render("/") + " " + m.search.input.View() + style.Faint.Render(matchInfo)
 }

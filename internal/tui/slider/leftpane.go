@@ -2,6 +2,8 @@ package slider
 
 import (
 	"bytes"
+	"dis/internal/tui/slider/style"
+	"dis/internal/tui/slider/textbuf"
 	"dis/internal/util"
 	"strings"
 
@@ -13,8 +15,8 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 	w := max(width-2, MinSliderWidth) // inner padding
 
 	// Header: "✂ Trim" ... right-aligned M:SS
-	header := boldStyle.Render("✂ Trim")
-	durStr := faintStyle.Render(util.FormatDurationShort(m.duration))
+	header := style.Bold.Render("✂ Trim")
+	durStr := style.Faint.Render(util.FormatDurationShort(m.duration))
 	pad := max(width-1-lipgloss.Width(header)-lipgloss.Width(durStr), 1)
 	lines = append(lines, " "+header+strings.Repeat(" ", pad)+durStr)
 
@@ -87,7 +89,7 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 
 	if m.warning != "" {
 		bottomLines = append(bottomLines, "")
-		bottomLines = append(bottomLines, " "+warnStyle.Render(m.warning))
+		bottomLines = append(bottomLines, " "+style.Warn.Render(m.warning))
 	}
 
 	formatBadge := m.renderFormatBadge()
@@ -110,7 +112,7 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 
 func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 	if m.duration <= 0 {
-		return strings.Repeat(" ", width), dimStyle.Render(strings.Repeat("┈", width))
+		return strings.Repeat(" ", width), style.Dim.Render(strings.Repeat("┈", width))
 	}
 
 	pixelsPerSecond := float64(width) / m.duration
@@ -140,13 +142,13 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 		if start < 0 {
 			continue
 		}
-		if bufHasOverlap(labelBuf, start, lblLen) {
+		if textbuf.HasOverlap(labelBuf, start, lblLen) {
 			continue
 		}
-		bufPlace(labelBuf, start, lbl)
+		textbuf.Place(labelBuf, start, lbl)
 	}
 
-	labels = faintStyle.Render(string(labelBuf))
+	labels = style.Faint.Render(string(labelBuf))
 
 	// Build tick row with handle position markers (#4: playhead indicator)
 	startIdx := int(m.anim.startPos / m.duration * float64(width))
@@ -163,18 +165,18 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 		switch i {
 		case startIdx:
 			if m.adjustingStart {
-				tickBuf.WriteString(accentBold.Render("▼"))
+				tickBuf.WriteString(style.AccentBold.Render("▼"))
 			} else {
-				tickBuf.WriteString(faintStyle.Render("▼"))
+				tickBuf.WriteString(style.Faint.Render("▼"))
 			}
 		case endIdx:
 			if !m.adjustingStart {
-				tickBuf.WriteString(accentBold.Render("▼"))
+				tickBuf.WriteString(style.AccentBold.Render("▼"))
 			} else {
-				tickBuf.WriteString(faintStyle.Render("▼"))
+				tickBuf.WriteString(style.Faint.Render("▼"))
 			}
 		default:
-			tickBuf.WriteString(dimStyle.Render("┈"))
+			tickBuf.WriteString(style.Dim.Render("┈"))
 		}
 	}
 	ticks = tickBuf.String()
