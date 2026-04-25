@@ -4,9 +4,8 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/convert"
-	"dis/internal/tui"
+	"dis/internal/download"
 	"dis/internal/util"
-	"errors"
 	"fmt"
 
 	"github.com/charmbracelet/huh"
@@ -57,19 +56,12 @@ func runSplitSegments(ctx context.Context, s *config.Settings, links, localFiles
 		trimSettings := seg
 		log.Info("Processing segment", "index", i+1, "start", util.FormatDurationShort(seg.Start), "end", util.FormatDurationShort(seg.End()))
 
-		for _, link := range links {
-			result, err := downloadWithProgress(ctx, fmt.Sprintf("Downloading segment %d...", i+1), link, s, &trimSettings)
-			if errors.Is(err, tui.ErrUserCancelled) {
-				return nil
-			}
-			if err != nil {
-				log.Error("Failed to download video", "url", link, "err", err)
-				continue
-			}
-			tempDirs = append(tempDirs, result.TempDir)
+		if downloadEach(ctx, s, links, &trimSettings, fmt.Sprintf("Downloading segment %d...", i+1), &tempDirs, func(result *download.DownloadResult) {
 			if err := convertDownloaded(ctx, s, result); err != nil {
 				log.Error("Failed to convert video", "path", result.OutputPath, "err", err)
 			}
+		}) {
+			return nil
 		}
 
 		for _, path := range localFiles {
@@ -95,19 +87,12 @@ func runCombineSegments(ctx context.Context, s *config.Settings, links, localFil
 		}
 	}
 
-	for _, link := range links {
-		result, err := downloadWithProgress(ctx, "Downloading...", link, s, spanTrim)
-		if errors.Is(err, tui.ErrUserCancelled) {
-			return nil
-		}
-		if err != nil {
-			log.Error("Failed to download video", "url", link, "err", err)
-			continue
-		}
-		tempDirs = append(tempDirs, result.TempDir)
+	if downloadEach(ctx, s, links, spanTrim, "Downloading...", &tempDirs, func(result *download.DownloadResult) {
 		if err := convert.ConcatSegments(ctx, result.OutputPath, s, relativeSegments, result.UploadDate); err != nil {
 			log.Error("Failed to concatenate segments", "err", err)
 		}
+	}) {
+		return nil
 	}
 
 	for _, path := range localFiles {
@@ -124,19 +109,12 @@ func runSpanSegments(ctx context.Context, s *config.Settings, links, localFiles 
 
 	spanTrim := spanFromSegments(segments)
 
-	for _, link := range links {
-		result, err := downloadWithProgress(ctx, "Downloading...", link, s, spanTrim)
-		if errors.Is(err, tui.ErrUserCancelled) {
-			return nil
-		}
-		if err != nil {
-			log.Error("Failed to download video", "url", link, "err", err)
-			continue
-		}
-		tempDirs = append(tempDirs, result.TempDir)
+	if downloadEach(ctx, s, links, spanTrim, "Downloading...", &tempDirs, func(result *download.DownloadResult) {
 		if err := convertDownloaded(ctx, s, result); err != nil {
 			log.Error("Failed to convert video", "path", result.OutputPath, "err", err)
 		}
+	}) {
+		return nil
 	}
 
 	for _, path := range localFiles {
