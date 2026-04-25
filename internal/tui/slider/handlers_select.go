@@ -5,29 +5,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, keys.Enter):
-		if m.timeInput.Value() != "" {
-			m.processTimeInput()
-		}
-		m.timeInput.Blur()
-		m.mode = modeNormal
-		return m, m.triggerAnim()
-
-	case key.Matches(msg, keys.Escape):
-		m.timeInput.Blur()
-		m.timeInput.Reset()
-		m.mode = modeNormal
-		return m, nil
-
-	default:
-		var cmd tea.Cmd
-		m.timeInput, cmd = m.timeInput.Update(msg)
-		return m, cmd
-	}
-}
-
 func (m Model) handleSelectMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Escape):
@@ -165,41 +142,4 @@ func (m Model) handleSelectMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, keys.Enter):
-		m.searchInput.Blur()
-		if m.mode == modeSearchSelect {
-			m.mode = modeSelect
-			if len(m.searchResults) > 0 {
-				m.cursor = m.searchResults[m.searchIndex]
-			}
-			return m, nil
-		}
-		m.mode = modeNormal
-		m.snapToCueSearchResult()
-		return m, m.triggerAnim()
-
-	case key.Matches(msg, keys.Escape):
-		m.searchInput.Blur()
-		m.searchInput.Reset()
-		if m.mode == modeSearchSelect {
-			m.mode = modeSelect
-		} else {
-			m.mode = modeNormal
-		}
-		m.searchResults = nil
-		return m, nil
-
-	default:
-		prevVal := m.searchInput.Value()
-		var cmd tea.Cmd
-		m.searchInput, cmd = m.searchInput.Update(msg)
-		if m.searchInput.Value() != prevVal {
-			m.updateSearchResults()
-		}
-		return m, cmd
-	}
 }
