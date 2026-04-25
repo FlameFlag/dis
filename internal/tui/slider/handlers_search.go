@@ -8,11 +8,11 @@ import (
 func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keys.Enter):
-		m.searchInput.Blur()
+		m.search.input.Blur()
 		if m.mode == modeSearchSelect {
 			m.mode = modeSelect
-			if len(m.searchResults) > 0 {
-				m.cursor = m.searchResults[m.searchIndex]
+			if len(m.search.results) > 0 {
+				m.sel.cursor = m.search.results[m.search.index]
 			}
 			return m, nil
 		}
@@ -21,21 +21,21 @@ func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.triggerAnim()
 
 	case key.Matches(msg, keys.Escape):
-		m.searchInput.Blur()
-		m.searchInput.Reset()
+		m.search.input.Blur()
+		m.search.input.Reset()
 		if m.mode == modeSearchSelect {
 			m.mode = modeSelect
 		} else {
 			m.mode = modeNormal
 		}
-		m.searchResults = nil
+		m.search.results = nil
 		return m, nil
 
 	default:
-		prevVal := m.searchInput.Value()
+		prevVal := m.search.input.Value()
 		var cmd tea.Cmd
-		m.searchInput, cmd = m.searchInput.Update(msg)
-		if m.searchInput.Value() != prevVal {
+		m.search.input, cmd = m.search.input.Update(msg)
+		if m.search.input.Value() != prevVal {
 			m.updateSearchResults()
 		}
 		return m, cmd

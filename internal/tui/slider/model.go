@@ -39,6 +39,31 @@ type TrimResult struct {
 	Speed    float64
 }
 
+// selectState holds word-level selection mode state.
+type selectState struct {
+	cursor          int    // word cursor index
+	selected        []bool // per-word selection state
+	anchor          int    // shift-select origin; -1 = no anchor
+	anchorSelecting bool   // true = shift-extend selects; false = deselects
+}
+
+// searchState holds search mode UI state.
+type searchState struct {
+	input   textinput.Model
+	results []int // matching indices (cue or word depending on mode)
+	index   int   // current match position
+}
+
+// animState holds the spring-driven slider animation.
+type animState struct {
+	spring   harmonica.Spring
+	startPos float64
+	startVel float64
+	endPos   float64
+	endVel   float64
+	active   bool
+}
+
 // Model is the BubbleTea model for the trim slider.
 type Model struct {
 	duration       float64
@@ -60,16 +85,8 @@ type Model struct {
 	transcriptCh <-chan subtitle.Transcript
 	words        []subtitle.Word // flattened word list
 
-	// Select mode (word-level selection)
-	cursor                int    // word cursor index
-	selected              []bool // per-word selection state
-	selectAnchor          int    // shift-select origin; -1 = no anchor
-	selectAnchorSelecting bool   // true = shift-extend selects; false = deselects
-
-	// Search mode
-	searchInput   textinput.Model
-	searchResults []int // matching indices (cue or word depending on mode)
-	searchIndex   int   // current match position
+	sel    selectState
+	search searchState
 
 	// Storyboard (async)
 	storyboard   *storyboard.StoryboardData
@@ -96,13 +113,7 @@ type Model struct {
 	// Terminal height (for conditional thumbnail rendering)
 	height int
 
-	// Animation
-	animSpring   harmonica.Spring
-	animStartPos float64
-	animStartVel float64
-	animEndPos   float64
-	animEndVel   float64
-	animating    bool
+	anim animState
 }
 
 // trimRange represents a single trim range with start and end times.
@@ -131,7 +142,7 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh
 	ti.Validate = validateTimeInput
 	return Model{
 		loadingSpinner:  spinner.New(spinner.WithSpinner(brailleSpinner)),
-		searchInput:     si,
+		search:          searchState{input: si},
 		timeInput:       ti,
 		duration:        duration,
 		startPos:        0,
@@ -142,13 +153,14 @@ func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh
 		storyboardCh:    storyboardCh,
 		sponsorSegsCh:   sponsorSegsCh,
 		viewportLocked:  true,
-		selectAnchor:    -1,
+		sel:             selectState{anchor: -1},
 		gifMode:         gifEnabled,
 		gifAvailable:    gifErr == nil,
 		speedMultiplier: 1.0,
-		animSpring:      harmonica.NewSpring(harmonica.FPS(AnimFPS), SpringFreq, SpringDamping),
-		animStartPos:    0,
-		animEndPos:      duration,
+		anim: animState{
+			spring: harmonica.NewSpring(harmonica.FPS(AnimFPS), SpringFreq, SpringDamping),
+			endPos: duration,
+		},
 	}
 }
 

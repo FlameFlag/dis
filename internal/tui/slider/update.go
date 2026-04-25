@@ -17,8 +17,8 @@ func animTick() tea.Cmd {
 }
 
 func (m *Model) triggerAnim() tea.Cmd {
-	if !m.animating {
-		m.animating = true
+	if !m.anim.active {
+		m.anim.active = true
 		return animTick()
 	}
 	return nil
@@ -39,7 +39,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.transcriptCh = nil
 		if len(m.transcript) > 0 {
 			m.words = m.transcript.Words()
-			m.selected = make([]bool, len(m.words))
+			m.sel.selected = make([]bool, len(m.words))
 		}
 		return m, nil
 	case SponsorSegsReadyMsg:
@@ -57,21 +57,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.warning != "" && time.Now().After(m.warningExpiry) {
 			m.warning = ""
 		}
-		if !m.animating {
+		if !m.anim.active {
 			return m, nil
 		}
-		m.animStartPos, m.animStartVel = m.animSpring.Update(m.animStartPos, m.animStartVel, m.startPos)
-		m.animEndPos, m.animEndVel = m.animSpring.Update(m.animEndPos, m.animEndVel, m.endPos)
+		m.anim.startPos, m.anim.startVel = m.anim.spring.Update(m.anim.startPos, m.anim.startVel, m.startPos)
+		m.anim.endPos, m.anim.endVel = m.anim.spring.Update(m.anim.endPos, m.anim.endVel, m.endPos)
 		// Settle threshold: half a column width in seconds
 		threshold := m.duration / float64(m.sliderWidth()) / 2
-		startSettled := math.Abs(m.animStartPos-m.startPos) < threshold && math.Abs(m.animStartVel) < threshold
-		endSettled := math.Abs(m.animEndPos-m.endPos) < threshold && math.Abs(m.animEndVel) < threshold
+		startSettled := math.Abs(m.anim.startPos-m.startPos) < threshold && math.Abs(m.anim.startVel) < threshold
+		endSettled := math.Abs(m.anim.endPos-m.endPos) < threshold && math.Abs(m.anim.endVel) < threshold
 		if startSettled && endSettled {
-			m.animStartPos = m.startPos
-			m.animEndPos = m.endPos
-			m.animStartVel = 0
-			m.animEndVel = 0
-			m.animating = false
+			m.anim.startPos = m.startPos
+			m.anim.endPos = m.endPos
+			m.anim.startVel = 0
+			m.anim.endVel = 0
+			m.anim.active = false
 			return m, nil
 		}
 		return m, animTick()
@@ -91,7 +91,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.isSearchMode():
 		var cmd tea.Cmd
-		m.searchInput, cmd = m.searchInput.Update(msg)
+		m.search.input, cmd = m.search.input.Update(msg)
 		return m, cmd
 	case m.mode == modeInput:
 		var cmd tea.Cmd

@@ -67,10 +67,10 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.Search):
 		if m.transcript != nil {
 			m.mode = modeSearch
-			m.searchInput.Reset()
-			m.searchResults = nil
-			m.searchIndex = 0
-			return m, m.searchInput.Focus()
+			m.search.input.Reset()
+			m.search.results = nil
+			m.search.index = 0
+			return m, m.search.input.Focus()
 		}
 		return m, nil
 
@@ -91,15 +91,15 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.NextMatch):
-		if m.transcript != nil && len(m.searchResults) > 0 {
-			m.searchIndex = (m.searchIndex + 1) % len(m.searchResults)
+		if m.transcript != nil && len(m.search.results) > 0 {
+			m.search.index = (m.search.index + 1) % len(m.search.results)
 			m.snapToCueSearchResult()
 		}
 		return m, nil
 
 	case key.Matches(msg, keys.PrevMatch):
-		if m.transcript != nil && len(m.searchResults) > 0 {
-			m.searchIndex = (m.searchIndex - 1 + len(m.searchResults)) % len(m.searchResults)
+		if m.transcript != nil && len(m.search.results) > 0 {
+			m.search.index = (m.search.index - 1 + len(m.search.results)) % len(m.search.results)
 			m.snapToCueSearchResult()
 		}
 		return m, nil
@@ -107,7 +107,7 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.TranscriptSelect):
 		if m.transcript != nil && len(m.words) > 0 {
 			m.mode = modeSelect
-			m.cursor = m.nearestWordIndex(m.activePos())
+			m.sel.cursor = m.nearestWordIndex(m.activePos())
 		}
 		return m, nil
 

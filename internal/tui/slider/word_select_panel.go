@@ -39,7 +39,7 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 
 	cursorGroup := 0
 	for i, g := range groups {
-		if m.cursor >= g.startIdx && m.cursor <= g.endIdx {
+		if m.sel.cursor >= g.startIdx && m.sel.cursor <= g.endIdx {
 			cursorGroup = i
 			break
 		}
@@ -61,8 +61,8 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 	selectedStyle := lipgloss.NewStyle().Foreground(tui.ColorPeach)
 	cursorSelectedStyle := lipgloss.NewStyle().Reverse(true).Bold(true).Foreground(tui.ColorPeach)
 
-	searchSet := make(map[int]bool, len(m.searchResults))
-	for _, idx := range m.searchResults {
+	searchSet := make(map[int]bool, len(m.search.results))
+	for _, idx := range m.search.results {
 		searchSet[idx] = true
 	}
 
@@ -73,7 +73,7 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 		lines = append(lines, faintStyle.Render(fmt.Sprintf("  ▲ %d more", startGroup)))
 	}
 
-	cursorTime := m.words[m.cursor].Start
+	cursorTime := m.words[m.sel.cursor].Start
 
 	for gi := startGroup; gi < endGroup; gi++ {
 		g := groups[gi]
@@ -116,8 +116,8 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 				lineLen++
 			}
 
-			isCursor := i == m.cursor
-			isSelected := m.selected[i]
+			isCursor := i == m.sel.cursor
+			isSelected := m.sel.selected[i]
 			isSearchMatch := searchSet[i]
 
 			switch {

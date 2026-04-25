@@ -149,8 +149,8 @@ func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 	labels = faintStyle.Render(string(labelBuf))
 
 	// Build tick row with handle position markers (#4: playhead indicator)
-	startIdx := int(m.animStartPos / m.duration * float64(width))
-	endIdx := int(m.animEndPos / m.duration * float64(width))
+	startIdx := int(m.anim.startPos / m.duration * float64(width))
+	endIdx := int(m.anim.endPos / m.duration * float64(width))
 	if startIdx < 0 {
 		startIdx = 0
 	}

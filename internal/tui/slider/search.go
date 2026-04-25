@@ -3,24 +3,24 @@ package slider
 import "math"
 
 func (m *Model) updateSearchResults() {
-	if m.searchInput.Value() == "" {
-		m.searchResults = nil
-		m.searchIndex = 0
+	if m.search.input.Value() == "" {
+		m.search.results = nil
+		m.search.index = 0
 		return
 	}
 	if m.mode == modeSearchSelect {
-		m.searchResults = m.transcript.SearchWords(m.words, m.searchInput.Value())
+		m.search.results = m.transcript.SearchWords(m.words, m.search.input.Value())
 	} else {
-		m.searchResults = m.transcript.Search(m.searchInput.Value())
+		m.search.results = m.transcript.Search(m.search.input.Value())
 	}
-	m.searchIndex = 0
+	m.search.index = 0
 }
 
 func (m *Model) snapToCueSearchResult() {
-	if len(m.searchResults) == 0 || m.transcript == nil {
+	if len(m.search.results) == 0 || m.transcript == nil {
 		return
 	}
-	idx := m.searchResults[m.searchIndex]
+	idx := m.search.results[m.search.index]
 	if idx >= 0 && idx < len(m.transcript) {
 		cueStart := m.transcript[idx].Start
 		if m.adjustingStart {

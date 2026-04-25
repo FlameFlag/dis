@@ -41,8 +41,8 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 
 	endCue := min(startCue+visibleCues, len(m.transcript))
 
-	searchSet := make(map[int]bool, len(m.searchResults))
-	for _, idx := range m.searchResults {
+	searchSet := make(map[int]bool, len(m.search.results))
+	for _, idx := range m.search.results {
 		searchSet[idx] = true
 	}
 

@@ -26,7 +26,7 @@ func (m *Model) toggleParagraph() {
 
 	// Search backward across all words for sentence-ending punctuation
 	lo := 0
-	for i := m.cursor - 1; i >= 0; i-- {
+	for i := m.sel.cursor - 1; i >= 0; i-- {
 		if isSentenceEnd(m.words[i].Text) {
 			lo = i + 1
 			break
@@ -35,7 +35,7 @@ func (m *Model) toggleParagraph() {
 
 	// Search forward across all words for sentence-ending punctuation
 	hi := len(m.words) - 1
-	for i := m.cursor; i < len(m.words); i++ {
+	for i := m.sel.cursor; i < len(m.words); i++ {
 		if isSentenceEnd(m.words[i].Text) {
 			hi = i
 			break
@@ -49,13 +49,13 @@ func (m *Model) toggleParagraph() {
 	// Majority toggle
 	sel := 0
 	for i := lo; i <= hi; i++ {
-		if m.selected[i] {
+		if m.sel.selected[i] {
 			sel++
 		}
 	}
 	newState := sel <= (hi-lo+1)/2
 	for i := lo; i <= hi; i++ {
-		m.selected[i] = newState
+		m.sel.selected[i] = newState
 	}
 }
 
@@ -78,7 +78,7 @@ func (m Model) selectedSegments() []config.TrimSettings {
 	inSegment := false
 	var segStart float64
 
-	for i, sel := range m.selected {
+	for i, sel := range m.sel.selected {
 		if sel && !inSegment {
 			segStart = m.words[i].Start
 			inSegment = true
@@ -92,7 +92,7 @@ func (m Model) selectedSegments() []config.TrimSettings {
 	}
 	if inSegment {
 		lastIdx := len(m.words) - 1
-		for lastIdx >= 0 && !m.selected[lastIdx] {
+		for lastIdx >= 0 && !m.sel.selected[lastIdx] {
 			lastIdx--
 		}
 		if lastIdx >= 0 {
@@ -115,7 +115,7 @@ func (m Model) selectedSegments() []config.TrimSettings {
 // selectedWordCount returns the number of selected words.
 func (m Model) selectedWordCount() int {
 	n := 0
-	for _, s := range m.selected {
+	for _, s := range m.sel.selected {
 		if s {
 			n++
 		}
@@ -124,7 +124,7 @@ func (m Model) selectedWordCount() int {
 }
 
 func (m Model) hasWordSelection() bool {
-	return slices.Contains(m.selected, true)
+	return slices.Contains(m.sel.selected, true)
 }
 
 func (m Model) nearestWordIndex(seconds float64) int {
@@ -136,7 +136,7 @@ func (m *Model) selectWordsInRanges(ranges []trimRange) {
 	for i, word := range m.words {
 		for _, r := range ranges {
 			if word.Start < r.end && word.End > r.start {
-				m.selected[i] = true
+				m.sel.selected[i] = true
 				break
 			}
 		}
