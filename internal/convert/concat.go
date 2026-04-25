@@ -5,7 +5,6 @@ import (
 	"dis/internal/config"
 	"dis/internal/tui"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -130,19 +129,11 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 
 	// Video encoding settings
 	if info.HasVideo {
-		args = append(args, "-crf", strconv.Itoa(s.Crf))
-
-		args = append(args, "-pix_fmt", codec.PixelFormat())
-		args = append(args, "-preset", "veryslow")
-		args = append(args, "-c:v", codec.FFmpegCodecName())
-		args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
-
-		// Target size constraint
 		var totalDur float64
 		for _, seg := range segments {
 			totalDur += seg.Duration
 		}
-		args = append(args, targetBitrateArgs(s, totalDur)...)
+		args = appendVideoEncoderArgs(args, s, codec, info, totalDur)
 
 		if s.Resolution != "" {
 			args = append(args, resolutionArgs(s.Resolution, info.Width, info.Height)...)
@@ -151,11 +142,7 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 
 	// Audio encoding
 	if info.HasAudio {
-		args = append(args, "-c:a", codec.AudioCodecName())
-
-		if s.AudioBitrate > 0 {
-			args = append(args, "-b:a", fmt.Sprintf("%dk", s.AudioBitrate))
-		}
+		args = appendAudioEncoderArgs(args, s, codec)
 	}
 
 	// Faststart for MP4

@@ -29,27 +29,11 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	// Strip inherited metadata so ffmpeg generates fresh container duration
 	args = append(args, "-map_metadata", "-1")
 
-	// CRF
-	args = append(args, "-crf", strconv.Itoa(s.Crf))
-
-	// Pixel format
-	args = append(args, "-pix_fmt", codec.PixelFormat())
-
-	// Preset
-	args = append(args, "-preset", "veryslow")
-
-	// Video codec
-	args = append(args, "-c:v", codec.FFmpegCodecName())
-
-	// Codec-specific params
-	args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
-
-	// Target size constraint
 	duration := info.Duration
 	if trimSettings != nil {
 		duration = trimSettings.Duration
 	}
-	args = append(args, targetBitrateArgs(s, duration)...)
+	args = appendVideoEncoderArgs(args, s, codec, info, duration)
 
 	// Video filter chain (resolution + speed)
 	var vFilters []string
@@ -67,10 +51,7 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 
 	// Audio codec
 	if info.HasAudio {
-		args = append(args, "-c:a", codec.AudioCodecName())
-		if s.AudioBitrate > 0 {
-			args = append(args, "-b:a", fmt.Sprintf("%dk", s.AudioBitrate))
-		}
+		args = appendAudioEncoderArgs(args, s, codec)
 		if s.Speed > 1.0 {
 			args = append(args, "-af", fmt.Sprintf("atempo=%.4g", s.Speed))
 		}
@@ -123,6 +104,30 @@ func codecParams(codec config.Codec, multiThread bool, framerate float64) []stri
 	default:
 		return nil
 	}
+}
+
+// appendVideoEncoderArgs emits CRF, pixel format, preset, codec, codec-specific
+// params, and the target-size bitrate cap — the block that both BuildFFmpegArgs
+// and buildConcatArgs need verbatim.
+func appendVideoEncoderArgs(args []string, s *config.Settings, codec config.Codec, info *MediaInfo, duration float64) []string {
+	args = append(args,
+		"-crf", strconv.Itoa(s.Crf),
+		"-pix_fmt", codec.PixelFormat(),
+		"-preset", "veryslow",
+		"-c:v", codec.FFmpegCodecName(),
+	)
+	args = append(args, codecParams(codec, s.MultiThread, info.Framerate)...)
+	args = append(args, targetBitrateArgs(s, duration)...)
+	return args
+}
+
+// appendAudioEncoderArgs emits -c:a and -b:a (when a bitrate override is set).
+func appendAudioEncoderArgs(args []string, s *config.Settings, codec config.Codec) []string {
+	args = append(args, "-c:a", codec.AudioCodecName())
+	if s.AudioBitrate > 0 {
+		args = append(args, "-b:a", fmt.Sprintf("%dk", s.AudioBitrate))
+	}
+	return args
 }
 
 // targetSizeArgs returns FFmpeg arguments to constrain the video bitrate.
