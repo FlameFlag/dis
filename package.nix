@@ -3,6 +3,7 @@
   makeWrapper,
   yt-dlp,
   ffmpeg-full,
+  gifski,
   lib,
   ...
 }:
@@ -28,6 +29,7 @@
           lib.makeBinPath [
             ffmpeg-full
             yt-dlp
+            gifski
           ]
         }
     '';
