@@ -37,9 +37,3 @@ func (m progressModel) renderBrailleWave(barW int) string {
 	}
 	return b.String()
 }
-
-var (
-	progressMsgStyle = lipgloss.NewStyle().Foreground(ColorText)
-	progressETAStyle = lipgloss.NewStyle().Foreground(ColorOverlay0)
-	progressPctStyle = lipgloss.NewStyle().Foreground(ColorTeal)
-)

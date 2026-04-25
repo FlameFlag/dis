@@ -10,6 +10,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/harmonica"
+	"github.com/charmbracelet/lipgloss"
+)
+
+var (
+	progressMsgStyle = lipgloss.NewStyle().Foreground(ColorText)
+	progressETAStyle = lipgloss.NewStyle().Foreground(ColorOverlay0)
+	progressPctStyle = lipgloss.NewStyle().Foreground(ColorTeal)
 )
 
 // ErrUserCancelled is returned when the user presses Ctrl+C during progress.
