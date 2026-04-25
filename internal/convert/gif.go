@@ -32,10 +32,7 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	duration := info.Duration
-	if trimSettings != nil {
-		duration = trimSettings.Duration
-	}
+	duration := clipDuration(info, trimSettings)
 
 	framePattern := filepath.Join(tmpDir, "frame%05d.png")
 	ffmpegArgs := buildFrameExtractionArgs(inputPath, framePattern, s, trimSettings)

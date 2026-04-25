@@ -29,9 +29,7 @@ func ConcatSegments(ctx context.Context, inputPath string, s *config.Settings, s
 	for _, seg := range segments {
 		totalDur += seg.Duration
 	}
-	if s.Speed > 1.0 {
-		totalDur /= s.Speed
-	}
+	totalDur = playbackDuration(totalDur, s.Speed)
 
 	log.Info("Concatenating segments...", "segments", len(segments), "input", inputPath)
 

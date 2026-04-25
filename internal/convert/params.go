@@ -29,11 +29,7 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	// Strip inherited metadata so ffmpeg generates fresh container duration
 	args = append(args, "-map_metadata", "-1")
 
-	duration := info.Duration
-	if trimSettings != nil {
-		duration = trimSettings.Duration
-	}
-	args = appendVideoEncoderArgs(args, s, codec, info, duration)
+	args = appendVideoEncoderArgs(args, s, codec, info, clipDuration(info, trimSettings))
 
 	// Video filter chain (resolution + speed)
 	var vFilters []string

@@ -43,13 +43,7 @@ func ConvertVideo(ctx context.Context, inputPath string, s *config.Settings, tri
 		args := BuildFFmpegArgs(inputPath, outputPath, s, info, trimSettings)
 
 		// Determine duration for progress
-		duration := info.Duration
-		if trimSettings != nil {
-			duration = trimSettings.Duration
-		}
-		if s.Speed > 1.0 {
-			duration /= s.Speed
-		}
+		duration := playbackDuration(clipDuration(info, trimSettings), s.Speed)
 
 		log.Info("Starting conversion...", "input", filepath.Base(inputPath))
 
