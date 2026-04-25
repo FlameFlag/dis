@@ -5,10 +5,15 @@ import (
 	"dis/internal/config"
 	"dis/internal/convert"
 	"dis/internal/tui"
+	"errors"
 	"fmt"
 
 	"github.com/charmbracelet/log"
 )
+
+// errGoBack signals that the GIF speed prompt was dismissed with "go back",
+// asking the caller to re-run the slider.
+var errGoBack = errors.New("go back to slider")
 
 func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, localFiles []string) ([]config.TrimSettings, error) {
 	if s.Trim == "" {
@@ -47,19 +52,19 @@ func resolveTrimWithSpeedPrompt(ctx context.Context, s *config.Settings, links, 
 		}
 
 		segments, err := promptGIFSpeedIfNeeded(s, result.Segments, ctx, localFiles)
+		if errors.Is(err, errGoBack) {
+			s.GIFSpeed = 0
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
-		if segments != nil {
-			return segments, nil
-		}
-		// nil segments means go-back - re-run slider
-		s.GIFSpeed = 0
+		return segments, nil
 	}
 }
 
 // promptGIFSpeedIfNeeded shows the speed prompt for long GIFs.
-// Returns nil segments (no error) as a signal to go back to the slider.
+// Returns errGoBack when the user chose "go back" at the prompt.
 func promptGIFSpeedIfNeeded(s *config.Settings, segments []config.TrimSettings, ctx context.Context, localFiles []string) ([]config.TrimSettings, error) {
 	if !s.GIF || s.GIFSpeed > 1.0 {
 		return segments, nil
@@ -83,7 +88,7 @@ func promptGIFSpeedIfNeeded(s *config.Settings, segments []config.TrimSettings, 
 		return segments, nil
 	}
 	if speed == convert.GIFSpeedGoBack {
-		return nil, nil
+		return nil, errGoBack
 	}
 	if speed > 1.0 {
 		s.GIFSpeed = speed
