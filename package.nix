@@ -2,7 +2,7 @@
   buildGoModule,
   makeWrapper,
   yt-dlp,
-  ffmpeg-full,
+  ffmpeg,
   gifski,
   lib,
   ...
@@ -27,7 +27,7 @@
       wrapProgram "$out/bin/dis" \
         --prefix PATH : ${
           lib.makeBinPath [
-            ffmpeg-full
+            ffmpeg
             yt-dlp
             gifski
           ]
