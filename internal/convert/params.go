@@ -37,8 +37,8 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 
 	// Video filter chain (resolution + speed)
 	var vFilters []string
-	if s.Speed > 1.0 {
-		vFilters = append(vFilters, fmt.Sprintf("setpts=PTS/%.4g", s.Speed))
+	if vsf := videoSpeedFilter(s.Speed); vsf != "" {
+		vFilters = append(vFilters, vsf)
 	}
 	if s.Resolution != "" && info.HasVideo {
 		if sf := scaleFilter(s.Resolution, info.Width, info.Height); sf != "" {
@@ -52,8 +52,8 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	// Audio codec
 	if info.HasAudio {
 		args = appendAudioEncoderArgs(args, s, codec)
-		if s.Speed > 1.0 {
-			args = append(args, "-af", fmt.Sprintf("atempo=%.4g", s.Speed))
+		if asf := audioSpeedFilter(s.Speed); asf != "" {
+			args = append(args, "-af", asf)
 		}
 	}
 

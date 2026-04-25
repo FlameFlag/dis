@@ -72,15 +72,15 @@ func buildConcatArgs(input, output string, s *config.Settings, info *MediaInfo, 
 
 		if info.HasVideo {
 			vf := fmt.Sprintf("[0:v]trim=start=%g:end=%g,setpts=PTS-STARTPTS", start, end)
-			if s.Speed > 1.0 {
-				vf += fmt.Sprintf(",setpts=PTS/%.4g", s.Speed)
+			if vsf := videoSpeedFilter(s.Speed); vsf != "" {
+				vf += "," + vsf
 			}
 			fmt.Fprintf(&fc, "%s[v%d];", vf, i)
 		}
 		if info.HasAudio {
 			af := fmt.Sprintf("[0:a]atrim=start=%g:end=%g,asetpts=PTS-STARTPTS", start, end)
-			if s.Speed > 1.0 {
-				af += fmt.Sprintf(",atempo=%.4g", s.Speed)
+			if asf := audioSpeedFilter(s.Speed); asf != "" {
+				af += "," + asf
 			}
 			fmt.Fprintf(&fc, "%s[a%d];", af, i)
 		}

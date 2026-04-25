@@ -91,11 +91,9 @@ func buildFrameExtractionArgs(input, framePattern string, s *config.Settings, tr
 		args = append(args, trimSettings.FFmpegArgs()...)
 	}
 	args = append(args, "-i", input)
-	var vf string
-	if s.GIFSpeed > 1.0 {
-		vf = fmt.Sprintf("setpts=PTS/%g,fps=%d,scale=%d:-2", s.GIFSpeed, s.GIFFps, s.GIFWidth)
-	} else {
-		vf = fmt.Sprintf("fps=%d,scale=%d:-2", s.GIFFps, s.GIFWidth)
+	vf := fmt.Sprintf("fps=%d,scale=%d:-2", s.GIFFps, s.GIFWidth)
+	if vsf := videoSpeedFilter(s.GIFSpeed); vsf != "" {
+		vf = vsf + "," + vf
 	}
 	args = append(args, "-vf", vf)
 	args = append(args, framePattern)
