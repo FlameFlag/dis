@@ -10,21 +10,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func bufHasOverlap(buf []byte, start, length int) bool {
-	for i := start; i < start+length && i < len(buf); i++ {
-		if buf[i] != ' ' {
-			return true
-		}
-	}
-	return false
-}
-
-func bufPlace(buf []byte, start int, s string) {
-	for i := 0; i < len(s) && start+i < len(buf); i++ {
-		buf[start+i] = s[i]
-	}
-}
-
 func (m Model) renderChapterLabels(width int) string {
 	type chapterInfo struct {
 		pos   int
