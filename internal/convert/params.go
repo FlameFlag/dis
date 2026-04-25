@@ -1,12 +1,8 @@
 package convert
 
 import (
-	"cmp"
 	"dis/internal/config"
-	"dis/internal/validate"
 	"fmt"
-	"math"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -62,46 +58,6 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 	return args
 }
 
-func codecParams(codec config.Codec, multiThread bool, framerate float64) []string {
-	switch codec {
-	case config.CodecH264, config.CodecHEVC:
-		if multiThread {
-			return []string{"-threads", strconv.Itoa(runtime.NumCPU())}
-		}
-		return nil
-
-	case config.CodecVP9:
-		return []string{
-			"-row-mt", "1",
-			"-lag-in-frames", "25",
-			"-cpu-used", "4",
-			"-auto-alt-ref", "1",
-			"-arnr-maxframes", "7",
-			"-arnr-strength", "4",
-			"-aq-mode", "0",
-			"-enable-tpl", "1",
-		}
-
-	case config.CodecAV1:
-		cpuUsed := "4"
-		if framerate < 24 {
-			cpuUsed = "2"
-		} else if framerate > 60 {
-			cpuUsed = "6"
-		}
-		return []string{
-			"-lag-in-frames", "48",
-			"-row-mt", "1",
-			"-tile-rows", "0",
-			"-tile-columns", "1",
-			"-cpu-used", cpuUsed,
-		}
-
-	default:
-		return nil
-	}
-}
-
 // appendVideoEncoderArgs emits CRF, pixel format, preset, codec, codec-specific
 // params, and the target-size bitrate cap — the block that both BuildFFmpegArgs
 // and buildConcatArgs need verbatim.
@@ -124,57 +80,4 @@ func appendAudioEncoderArgs(args []string, s *config.Settings, codec config.Code
 		args = append(args, "-b:a", fmt.Sprintf("%dk", s.AudioBitrate))
 	}
 	return args
-}
-
-// targetSizeArgs returns FFmpeg arguments to constrain the video bitrate.
-func targetSizeArgs(videoBitrateKbps int) []string {
-	return []string{
-		"-maxrate", fmt.Sprintf("%dk", videoBitrateKbps),
-		"-bufsize", fmt.Sprintf("%dk", videoBitrateKbps*2),
-	}
-}
-
-// targetBitrateArgs resolves the target-size setting into -maxrate/-bufsize
-// args, or returns nil when unset, unparseable, or the duration is zero.
-func targetBitrateArgs(s *config.Settings, duration float64) []string {
-	if s.TargetSize == "" {
-		return nil
-	}
-	targetBytes, _ := config.ParseSize(s.TargetSize)
-	if targetBytes <= 0 {
-		return nil
-	}
-	audioBitrate := cmp.Or(s.AudioBitrate, validate.DefaultAudioBitrate)
-	kbps := config.CalculateVideoBitrate(targetBytes, duration, audioBitrate)
-	if kbps <= 0 {
-		return nil
-	}
-	return targetSizeArgs(kbps)
-}
-
-// scaleFilter returns a "scale=W:H" filter string for the given resolution,
-// preserving aspect ratio and ensuring even dimensions. Returns "" on invalid input.
-func scaleFilter(resolution string, origWidth, origHeight int) string {
-	cleaned := strings.TrimSuffix(strings.ToLower(resolution), "p")
-	resInt, err := strconv.Atoi(cleaned)
-	if err != nil {
-		return ""
-	}
-
-	aspectRatio := float64(origWidth) / float64(origHeight)
-	outWidth := int(math.Round(float64(resInt) * aspectRatio))
-	outHeight := resInt
-
-	// Ensure even dimensions
-	outWidth -= outWidth % 2
-	outHeight -= outHeight % 2
-
-	return fmt.Sprintf("scale=%d:%d", outWidth, outHeight)
-}
-
-func resolutionArgs(resolution string, origWidth, origHeight int) []string {
-	if sf := scaleFilter(resolution, origWidth, origHeight); sf != "" {
-		return []string{"-vf", sf}
-	}
-	return nil
 }
