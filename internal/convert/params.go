@@ -59,7 +59,7 @@ func BuildFFmpegArgs(input string, output string, s *config.Settings, info *Medi
 }
 
 // appendVideoEncoderArgs emits CRF, pixel format, preset, codec, codec-specific
-// params, and the target-size bitrate cap — the block that both BuildFFmpegArgs
+// params, and the target-size bitrate cap, the block that both BuildFFmpegArgs
 // and buildConcatArgs need verbatim.
 func appendVideoEncoderArgs(args []string, s *config.Settings, codec config.Codec, info *MediaInfo, duration float64) []string {
 	args = append(args,

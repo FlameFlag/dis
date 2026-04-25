@@ -44,49 +44,39 @@ func convertDownloaded(ctx context.Context, s *config.Settings, result *download
 	return convert.ConvertVideo(ctx, result.OutputPath, s, nil, result.UploadDate)
 }
 
-// downloadEach drives the per-link download loop: progress bar, temp-dir
-// tracking, error logging, and the user-cancel / context-cancel exits that
-// every caller had been duplicating. It returns true when the loop aborted
-// (cancellation), letting the caller bail in turn.
-func downloadEach(
+// downloadLinks downloads each URL with a progress bar, tracking temp dirs
+// and logging individual failures. It returns the successful results and a
+// cancelled flag set when the loop bailed early (ctx.Err or user-cancel).
+func downloadLinks(
 	ctx context.Context,
 	s *config.Settings,
 	links []string,
 	trim *config.TrimSettings,
 	msg string,
 	tempDirs *[]string,
-	onResult func(*download.DownloadResult),
-) bool {
+) (results []*download.DownloadResult, cancelled bool) {
+	if len(links) == 0 {
+		return nil, false
+	}
+
+	log.Info("Starting download", "count", len(links))
 	for _, link := range links {
 		if err := ctx.Err(); err != nil {
-			return true
+			return results, true
 		}
 		result, err := downloadWithProgress(ctx, msg, link, s, trim)
 		if errors.Is(err, tui.ErrUserCancelled) {
-			return true
+			return results, true
 		}
 		if err != nil {
 			log.Error("Failed to download video", "url", link, "err", err)
 			continue
 		}
 		*tempDirs = append(*tempDirs, result.TempDir)
-		onResult(result)
-	}
-	return false
-}
-
-func downloadLinks(ctx context.Context, s *config.Settings, links []string, trim *config.TrimSettings, tempDirs *[]string) []*download.DownloadResult {
-	if len(links) == 0 {
-		return nil
-	}
-
-	log.Info("Starting download", "count", len(links))
-	var results []*download.DownloadResult
-	downloadEach(ctx, s, links, trim, "Downloading...", tempDirs, func(result *download.DownloadResult) {
 		log.Info("Downloaded video", "path", result.OutputPath)
 		results = append(results, result)
-	})
-	return results
+	}
+	return results, false
 }
 
 // cleanupDirs removes all temporary directories in the slice.

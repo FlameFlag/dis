@@ -7,7 +7,7 @@ import (
 )
 
 // cueFormat captures the differences between subtitle formats consumed by the
-// shared parser in parseCues — only timestamp shape and a couple of small
+// shared parser in parseCues, only timestamp shape and a couple of small
 // VTT-specific behaviours actually vary.
 type cueFormat struct {
 	label       string         // shown in error messages

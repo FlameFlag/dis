@@ -1,11 +1,10 @@
 package convert
 
 import (
+	"dis/internal/tui"
 	"regexp"
 	"strconv"
 	"sync"
-
-	"dis/internal/tui"
 )
 
 // FFmpegTimeRegex matches "time=HH:MM:SS.ms" in FFmpeg output.

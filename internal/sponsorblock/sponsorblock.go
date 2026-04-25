@@ -102,7 +102,7 @@ func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
 
 	body, err := util.HTTPGet(ctx, u, nil)
 	if err != nil {
-		// A 404 means "no segments for this video" — not a real error.
+		// A 404 means "no segments for this video", not a real error.
 		var httpErr *util.HTTPError
 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
 			return nil, nil

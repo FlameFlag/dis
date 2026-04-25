@@ -90,12 +90,12 @@ func run(ctx context.Context, s *config.Settings) error {
 	var tempDirs []string
 	defer cleanupDirs(&tempDirs)
 
-	downloaded := downloadLinks(ctx, s, links, trimSettings, &tempDirs)
+	downloaded, cancelled := downloadLinks(ctx, s, links, trimSettings, "Downloading...", &tempDirs)
+	if cancelled {
+		return nil
+	}
 
 	for _, r := range downloaded {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
 		if err := convertDownloaded(ctx, s, r); err != nil {
 			log.Error("Failed to convert video", "path", r.OutputPath, "err", err)
 		}

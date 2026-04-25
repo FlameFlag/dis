@@ -14,7 +14,7 @@ import (
 
 // runInProcessGroup runs a yt-dlp command with proper process group cleanup.
 // Unlike dl.Run(), this uses BuildCommand so we can set up process group
-// management before the command starts — ensuring ffmpeg grandchildren are
+// management before the command starts, ensuring ffmpeg grandchildren are
 // killed on cancellation.
 func runInProcessGroup(ctx context.Context, dl *ytdlp.Command, url string, onStderrLine func(string)) (string, error) {
 	cmd := dl.BuildCommand(ctx, url)
@@ -27,7 +27,7 @@ func runInProcessGroup(ctx context.Context, dl *ytdlp.Command, url string, onStd
 		return "", fmt.Errorf("stderr pipe: %w", err)
 	}
 
-	err = procgroup.Run(ctx, cmd, 5*time.Second, func() error {
+	err = procgroup.Run(cmd, 5*time.Second, func() error {
 		scanner := bufio.NewScanner(stderrPipe)
 		scanner.Split(convert.ScanFFmpegLines)
 		for scanner.Scan() {

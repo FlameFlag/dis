@@ -17,8 +17,8 @@ func main() {
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-		<-ch // first signal — handled by fang's NotifyContext
-		<-ch // second signal — user is impatient
+		<-ch // first signal, handled by fang's NotifyContext
+		<-ch // second signal, user is impatient
 		procgroup.KillAll()
 		os.Exit(1)
 	}()

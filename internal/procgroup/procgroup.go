@@ -43,7 +43,7 @@ func Untrack(cmd *exec.Cmd) {
 }
 
 // KillAll sends SIGKILL to every tracked process group. Safe to call from
-// a signal handler — it does not block on process exit.
+// a signal handler, it does not block on process exit.
 func KillAll() {
 	mu.Lock()
 	defer mu.Unlock()

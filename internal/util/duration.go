@@ -37,7 +37,7 @@ func FormatDurationMillis(seconds float64) string {
 	return fmt.Sprintf("%d:%02d.%03d", m, s, ms)
 }
 
-// FormatTimeHMS formats seconds as "HH:MM:SS.mmm" — the form FFmpeg expects for -ss/-t.
+// FormatTimeHMS formats seconds as "HH:MM:SS.mmm", the form FFmpeg expects for -ss/-t.
 func FormatTimeHMS(seconds float64) string {
 	h, m, s, ms := splitHMS(secondsToDuration(seconds))
 	return fmt.Sprintf("%02d:%02d:%02d.%03d", h, m, s, ms)

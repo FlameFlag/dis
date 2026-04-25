@@ -6,7 +6,7 @@ import (
 )
 
 // vttTimestampRe captures HH (possibly empty), MM, SS, mmm. The hours group
-// uses a non-capturing colon so the captured field is just the digits — same
+// uses a non-capturing colon so the captured field is just the digits, same
 // shape as srtTimestampRe so both can share parseTimestamp.
 var vttTimestampRe = regexp.MustCompile(`(?:(\d{1,2}):)?(\d{2}):(\d{2})\.(\d{3})`)
 

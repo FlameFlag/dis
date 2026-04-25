@@ -25,7 +25,7 @@ type FragmentInfo struct {
 // StoryboardData holds downloaded and decoded storyboard images.
 type StoryboardData struct {
 	Info   StoryboardInfo
-	Images map[int]image.Image // fragment index → decoded image
+	Images map[int]image.Image // fragment index -> decoded image
 }
 
 // ExtractStoryboard finds a storyboard format in yt-dlp metadata and returns its info.

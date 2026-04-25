@@ -68,7 +68,7 @@ func ExportGIF(ctx context.Context, inputPath string, s *config.Settings, trimSe
 	log.Info("Encoding GIF with gifski...")
 	cmd := exec.CommandContext(ctx, "gifski", gifskiArgs...)
 	cmd.Stderr = os.Stderr
-	if err := procgroup.Run(ctx, cmd, 5*time.Second, nil); err != nil {
+	if err := procgroup.Run(cmd, 5*time.Second, nil); err != nil {
 		return fmt.Errorf("gifski encoding failed: %w", err)
 	}
 

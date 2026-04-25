@@ -4,7 +4,6 @@ import (
 	"context"
 	"dis/internal/config"
 	"dis/internal/convert"
-	"dis/internal/download"
 	"dis/internal/util"
 	"fmt"
 
@@ -56,12 +55,14 @@ func runSplitSegments(ctx context.Context, s *config.Settings, links, localFiles
 		trimSettings := seg
 		log.Info("Processing segment", "index", i+1, "start", util.FormatDurationShort(seg.Start), "end", util.FormatDurationShort(seg.End()))
 
-		if downloadEach(ctx, s, links, &trimSettings, fmt.Sprintf("Downloading segment %d...", i+1), &tempDirs, func(result *download.DownloadResult) {
-			if err := convertDownloaded(ctx, s, result); err != nil {
-				log.Error("Failed to convert video", "path", result.OutputPath, "err", err)
-			}
-		}) {
+		downloaded, cancelled := downloadLinks(ctx, s, links, &trimSettings, fmt.Sprintf("Downloading segment %d...", i+1), &tempDirs)
+		if cancelled {
 			return nil
+		}
+		for _, r := range downloaded {
+			if err := convertDownloaded(ctx, s, r); err != nil {
+				log.Error("Failed to convert video", "path", r.OutputPath, "err", err)
+			}
 		}
 
 		for _, path := range localFiles {
@@ -87,12 +88,14 @@ func runCombineSegments(ctx context.Context, s *config.Settings, links, localFil
 		}
 	}
 
-	if downloadEach(ctx, s, links, spanTrim, "Downloading...", &tempDirs, func(result *download.DownloadResult) {
-		if err := convert.ConcatSegments(ctx, result.OutputPath, s, relativeSegments, result.UploadDate); err != nil {
+	downloaded, cancelled := downloadLinks(ctx, s, links, spanTrim, "Downloading...", &tempDirs)
+	if cancelled {
+		return nil
+	}
+	for _, r := range downloaded {
+		if err := convert.ConcatSegments(ctx, r.OutputPath, s, relativeSegments, r.UploadDate); err != nil {
 			log.Error("Failed to concatenate segments", "err", err)
 		}
-	}) {
-		return nil
 	}
 
 	for _, path := range localFiles {
@@ -109,12 +112,14 @@ func runSpanSegments(ctx context.Context, s *config.Settings, links, localFiles 
 
 	spanTrim := spanFromSegments(segments)
 
-	if downloadEach(ctx, s, links, spanTrim, "Downloading...", &tempDirs, func(result *download.DownloadResult) {
-		if err := convertDownloaded(ctx, s, result); err != nil {
-			log.Error("Failed to convert video", "path", result.OutputPath, "err", err)
-		}
-	}) {
+	downloaded, cancelled := downloadLinks(ctx, s, links, spanTrim, "Downloading...", &tempDirs)
+	if cancelled {
 		return nil
+	}
+	for _, r := range downloaded {
+		if err := convertDownloaded(ctx, s, r); err != nil {
+			log.Error("Failed to convert video", "path", r.OutputPath, "err", err)
+		}
 	}
 
 	for _, path := range localFiles {

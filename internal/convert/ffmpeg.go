@@ -26,7 +26,7 @@ func RunFFmpeg(ctx context.Context, args []string, totalDuration float64, onProg
 		return fmt.Errorf("failed to get stderr pipe: %w", err)
 	}
 
-	err = procgroup.Run(ctx, cmd, 5*time.Second, func() error {
+	err = procgroup.Run(cmd, 5*time.Second, func() error {
 		scanner := bufio.NewScanner(stderr)
 		scanner.Split(ScanFFmpegLines)
 		for scanner.Scan() {

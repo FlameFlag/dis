@@ -3,7 +3,7 @@ package convert
 import "dis/internal/config"
 
 // clipDuration returns the trim duration if a trim is set, else the full
-// media duration — the common "what duration are we operating on?" choice.
+// media duration, the common "what duration are we operating on?" choice.
 func clipDuration(info *MediaInfo, trim *config.TrimSettings) float64 {
 	if trim != nil {
 		return trim.Duration
