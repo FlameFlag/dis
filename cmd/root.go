@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "11.1.0"
+var Version = "11.3.0"
 
 var settings config.Settings
 

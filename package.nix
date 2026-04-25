@@ -10,7 +10,7 @@
 {
   default = buildGoModule (finalAttrs: {
     pname = "dis";
-    version = "11.1.0";
+    version = "11.3.0";
 
     src = ./.;
 
