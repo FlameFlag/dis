@@ -30,4 +30,7 @@ type Settings struct {
 	GIFMotionQuality int
 	GIFSpeed         float64
 	Speed            float64
+
+	// FFmpegPath is the resolved ffmpeg executable used by yt-dlp post-processing.
+	FFmpegPath string
 }

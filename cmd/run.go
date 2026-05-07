@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/log"
+	"github.com/lrstanley/go-ytdlp"
 )
 
 func validateAll(s *config.Settings, cfg *config.FileConfig) error {
@@ -41,10 +42,14 @@ func validateAll(s *config.Settings, cfg *config.FileConfig) error {
 }
 
 func run(ctx context.Context, s *config.Settings) error {
-	for _, dep := range []string{"ffmpeg", "yt-dlp"} {
-		if _, err := exec.LookPath(dep); err != nil {
-			return fmt.Errorf("%s not found, please install it and ensure it is in your PATH", dep)
-		}
+	ffmpeg, err := ytdlp.InstallFFmpeg(ctx, &ytdlp.InstallFFmpegOptions{DisableDownload: true})
+	if err != nil {
+		return fmt.Errorf("ffmpeg not found, please install it and ensure it is in your PATH: %w", err)
+	}
+	s.FFmpegPath = ffmpeg.Executable
+
+	if _, err := exec.LookPath("yt-dlp"); err != nil {
+		return fmt.Errorf("yt-dlp not found, please install it and ensure it is in your PATH")
 	}
 
 	if s.GIF {

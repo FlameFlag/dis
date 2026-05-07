@@ -78,6 +78,11 @@ func ExtractChapters(info *ytdlp.ExtractedInfo) []config.Chapter {
 // baseCommand creates a ytdlp.Command with shared config (format, metadata, SponsorBlock).
 func baseCommand(s *config.Settings, rawURL string) *ytdlp.Command {
 	dl := ytdlp.New()
+	if s.FFmpegPath != "" {
+		// Some yt-dlp wrappers prepend their own ffmpeg to PATH. Pin yt-dlp to the
+		// same executable that dis validated at startup.
+		dl.FFmpegLocation(s.FFmpegPath)
+	}
 	dl.FormatSort("res,vcodec:h264,ext:mp4:m4a")
 	dl.MergeOutputFormat("mp4")
 	dl.RemuxVideo("mp4")
