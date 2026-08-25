@@ -1,16 +1,15 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/keys"
 	"math"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, keys.Enter):
+	case key.Matches(msg, Enter):
 		m.search.input.Blur()
 		if m.mode == modeSearchSelect {
 			m.mode = modeSelect
@@ -21,9 +20,9 @@ func (m Model) handleSearchMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.mode = modeNormal
 		m.snapToCueSearchResult()
-		return m, m.triggerAnim()
+		return m, nil
 
-	case key.Matches(msg, keys.Escape):
+	case key.Matches(msg, Escape):
 		m.search.input.Blur()
 		m.search.input.Reset()
 		if m.mode == modeSearchSelect {
@@ -67,10 +66,10 @@ func (m *Model) snapToCueSearchResult() {
 	if idx >= 0 && idx < len(m.transcript) {
 		cueStart := m.transcript[idx].Start
 		if m.adjustingStart {
-			m.startPos = math.Max(0, math.Min(m.endPos-MillisecondStep, cueStart))
+			m.startPos = max(0, min(m.endPos-MillisecondStep, cueStart))
 		} else {
 			cueEnd := m.transcript[idx].End
-			m.endPos = math.Max(m.startPos+MillisecondStep, math.Min(m.duration, cueEnd))
+			m.endPos = max(m.startPos+MillisecondStep, min(m.duration, cueEnd))
 		}
 		m.roundPositions()
 	}
@@ -83,16 +82,17 @@ func (m *Model) snapToNextCue() {
 		return
 	}
 	// If rounding would produce the same position, skip to the next cue
-	if math.Round(next*100)/100 <= math.Round(pos*100)/100 {
-		next = m.transcript.NextCueStart(next + 0.001)
+	if math.Round(next*positionRoundingScale)/positionRoundingScale <=
+		math.Round(pos*positionRoundingScale)/positionRoundingScale {
+		next = m.transcript.NextCueStart(next + searchCueEpsilon)
 		if next < 0 {
 			return
 		}
 	}
 	if m.adjustingStart {
-		m.startPos = math.Min(m.endPos-MillisecondStep, next)
+		m.startPos = min(m.endPos-MillisecondStep, next)
 	} else {
-		m.endPos = math.Min(m.duration, next)
+		m.endPos = min(m.duration, next)
 	}
 	m.roundPositions()
 }
@@ -104,16 +104,17 @@ func (m *Model) snapToPrevCue() {
 		return
 	}
 	// If rounding would produce the same position, skip to the previous cue
-	if math.Round(prev*100)/100 >= math.Round(pos*100)/100 {
-		prev = m.transcript.PrevCueStart(prev - 0.001)
+	if math.Round(prev*positionRoundingScale)/positionRoundingScale >=
+		math.Round(pos*positionRoundingScale)/positionRoundingScale {
+		prev = m.transcript.PrevCueStart(prev - searchCueEpsilon)
 		if prev < 0 {
 			return
 		}
 	}
 	if m.adjustingStart {
-		m.startPos = math.Max(0, prev)
+		m.startPos = max(0, prev)
 	} else {
-		m.endPos = math.Max(m.startPos+MillisecondStep, prev)
+		m.endPos = max(m.startPos+MillisecondStep, prev)
 	}
 	m.roundPositions()
 }

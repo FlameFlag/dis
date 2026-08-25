@@ -1,23 +1,24 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/keys"
-
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (m Model) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, keys.Enter):
+	case key.Matches(msg, Enter):
 		if m.timeInput.Value() != "" {
-			m.processTimeInput()
+			if err := m.processTimeInput(); err != nil {
+				m.warning = "Invalid time: " + err.Error()
+				return m, expireWarning(m.warning)
+			}
 		}
 		m.timeInput.Blur()
 		m.mode = modeNormal
-		return m, m.triggerAnim()
+		return m, nil
 
-	case key.Matches(msg, keys.Escape):
+	case key.Matches(msg, Escape):
 		m.timeInput.Blur()
 		m.timeInput.Reset()
 		m.mode = modeNormal

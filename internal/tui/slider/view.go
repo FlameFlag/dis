@@ -1,141 +1,329 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/style"
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
-func (m Model) View() string {
-	if m.width < 20 {
-		return ""
+func (m Model) View() tea.View {
+	if m.width < MinTerminalWidth || (m.height > 0 && m.height < MinTerminalHeight) {
+		return newView(m.renderSizeWarning())
+	}
+	if m.helpVisible {
+		return newView(m.renderFullHelpScreen() + "\n")
 	}
 
 	helpBar := m.renderHelpBar()
-	helpH := strings.Count(helpBar, "\n") + 1
+	helpHeight := lipgloss.Height(helpBar)
 
-	// Available content height: terminal height minus border chrome
-	// top border (1) + bottom border (1) + help lines + final newline (1)
-	contentHeight := 0
-	if m.height > 0 {
-		overhead := 1 + 1 + helpH + 1
-		if m.isSearchMode() {
-			overhead++
+	switch {
+	case m.isTwoPane():
+		contentHeight := m.availableContentHeight(helpHeight, standardBorderRows)
+		leftWidth := m.leftPaneWidth()
+		rightWidth := m.rightPaneWidth()
+		left := m.renderLeftPaneWithHeight(leftWidth, contentHeight)
+		right := m.renderRightPaneWithHeight(rightWidth, contentHeight)
+		body := m.renderBorderedLayout(
+			left,
+			leftWidth,
+			right,
+			rightWidth,
+			helpBar,
+			contentHeight,
+		)
+		return newView(body + "\n")
+
+	case m.isStacked():
+		contentHeight := m.availableContentHeight(helpHeight, stackedBorderRows)
+		innerWidth := m.width - singlePaneBorderCells
+		naturalTimeline := m.renderLeftPaneWithHeight(innerWidth, 0)
+		timelineHeight := lipgloss.Height(naturalTimeline)
+		transcriptHeight := 0
+		if contentHeight > 0 {
+			minTranscriptHeight := min(stackedMaxTranscriptHeight,
+				max(contentHeight/stackedTranscriptDivisor, 1))
+			timelineHeight = min(
+				timelineHeight,
+				max(contentHeight-minTranscriptHeight, 1),
+			)
+			transcriptHeight = max(contentHeight-timelineHeight, 1)
 		}
-		contentHeight = max(m.height-overhead, 0)
-	}
+		timeline := m.renderLeftPaneWithHeight(innerWidth, timelineHeight)
+		transcript := m.renderRightPaneWithHeight(innerWidth, transcriptHeight)
+		body := m.renderStackedLayout(
+			timeline,
+			transcript,
+			innerWidth,
+			timelineHeight,
+			transcriptHeight,
+			helpBar,
+		)
+		return newView(body + "\n")
 
-	if m.isTwoPane() {
-		leftW := m.leftPaneWidth()
-		rightW := m.rightPaneWidth()
-		left := m.renderLeftPaneWithHeight(leftW, contentHeight)
-		leftHeight := strings.Count(left, "\n") + 1
-		targetHeight := max(leftHeight, contentHeight)
-		right := m.renderRightPaneWithHeight(rightW, targetHeight)
-		body := m.renderBorderedLayout(left, leftW, right, rightW, helpBar, contentHeight)
-		return body + "\n"
+	default:
+		contentHeight := m.availableContentHeight(helpHeight, standardBorderRows)
+		innerWidth := m.width - singlePaneBorderCells
+		content := m.renderLeftPaneWithHeight(innerWidth, contentHeight)
+		body := m.renderSingleColumnLayout(
+			content,
+			innerWidth,
+			helpBar,
+			contentHeight,
+		)
+		return newView(body + "\n")
 	}
-
-	// Single-column fallback
-	innerW := m.width - 2
-	left := m.renderLeftPaneWithHeight(innerW, contentHeight)
-	body := m.renderSingleColumnLayout(left, innerW, helpBar, contentHeight)
-	return body + "\n"
 }
 
-func (m Model) renderBorderedLayout(left string, leftW int, right string, rightW int, helpBar string, contentHeight int) string {
-	leftLines := strings.Split(left, "\n")
-	rightLines := strings.Split(right, "\n")
+func newView(content string) tea.View {
+	view := tea.NewView(content)
+	view.AltScreen = true
+	return view
+}
 
-	// Equalize heights, ensuring we fill contentHeight
-	maxH := max(len(leftLines), len(rightLines), contentHeight)
-	for len(leftLines) < maxH {
+func (m Model) availableContentHeight(helpHeight, borderRows int) int {
+	if m.height <= 0 {
+		return 0
+	}
+	overhead := borderRows + helpHeight + 1 // final newline
+	if m.isSearchMode() {
+		overhead++
+	}
+	return max(m.height-overhead, 1)
+}
+
+func (m Model) renderSizeWarning() string {
+	width := max(m.width, 1)
+	height := max(m.height, 1)
+	if height < minimumDetailedWarningRows {
+		message := AccentBold.Render(ansi.Truncate("Resize terminal", width, ""))
+		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, message)
+	}
+	titleText := ansi.Truncate("dis · Trim", width, "")
+	title := AccentBold.Render(titleText)
+	detail := fmt.Sprintf(
+		"Resize to at least %d × %d",
+		MinTerminalWidth,
+		MinTerminalHeight,
+	)
+	if width < lipgloss.Width(detail) {
+		detail = ansi.Truncate("Resize terminal", width, "")
+	}
+	separator := "\n\n"
+	if height == minimumDetailedWarningRows {
+		separator = "\n"
+	}
+	message := title + separator + Faint.Render(detail)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, message)
+}
+
+func fitLines(content string, height int) []string {
+	lines := strings.Split(content, "\n")
+	if height <= 0 {
+		return lines
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	return lines
+}
+
+func renderTitledBorder(
+	leftCorner string,
+	rightCorner string,
+	width int,
+	title string,
+	borderStyle lipgloss.Style,
+	titleStyle lipgloss.Style,
+) string {
+	title = " " + title + " "
+	fill := max(width-lipgloss.Width(title)-1, 0)
+	return borderStyle.Render(leftCorner+"─") +
+		titleStyle.Render(title) +
+		borderStyle.Render(strings.Repeat("─", fill)+rightCorner)
+}
+
+func (m Model) renderBorderedLayout(
+	left string,
+	leftWidth int,
+	right string,
+	rightWidth int,
+	helpBar string,
+	contentHeight int,
+) string {
+	leftLines := fitLines(left, contentHeight)
+	rightLines := fitLines(right, contentHeight)
+	maxHeight := max(len(leftLines), len(rightLines))
+	for len(leftLines) < maxHeight {
 		leftLines = append(leftLines, "")
 	}
-	for len(rightLines) < maxH {
+	for len(rightLines) < maxHeight {
 		rightLines = append(rightLines, "")
 	}
 
-	// Right pane border color: peach in select mode, default otherwise
-	divColor := style.Border
-	if m.isSelectMode() {
-		divColor = style.Accent
+	rightBorder := Border
+	if m.isSelectMode() || m.isSearchMode() {
+		rightBorder = Accent
 	}
 
-	// Build right pane title
+	leftTitle := m.leftPaneTitle()
 	rightTitle := m.rightPaneTitle()
+	leftTitleWidth := lipgloss.Width(" " + leftTitle + " ")
+	rightTitleWidth := lipgloss.Width(" " + rightTitle + " ")
+	topLeftFill := max(leftWidth-leftTitleWidth-1, 0)
+	topRightFill := max(rightWidth-rightTitleWidth-1, 0)
 
 	var b strings.Builder
+	b.WriteString(Border.Render("┌─") +
+		AccentBold.Render(" "+leftTitle+" ") +
+		Border.Render(strings.Repeat("─", topLeftFill)+"┬─") +
+		rightBorder.Render(" "+rightTitle+" ") +
+		rightBorder.Render(strings.Repeat("─", topRightFill)+"┐") + "\n")
 
-	// Top border: ┌─ Timeline ─────────────┬─ Transcript ──────────┐
-	leftTitle := " Timeline "
-	topLeft := "─" + style.Border.Render(leftTitle) + style.Border.Render(strings.Repeat("─", max(leftW-lipgloss.Width(leftTitle)-1, 0)))
-	topRight := "─" + divColor.Render(rightTitle) + divColor.Render(strings.Repeat("─", max(rightW-lipgloss.Width(rightTitle)-1, 0)))
-	b.WriteString(style.Border.Render("┌") + style.Border.Render(topLeft) + divColor.Render("┬") + divColor.Render(topRight) + divColor.Render("┐") + "\n")
-
-	// Body rows
-	leftPad := lipgloss.NewStyle().Width(leftW)
-	rightPad := lipgloss.NewStyle().Width(rightW)
-	for i := range maxH {
-		ll := leftPad.Render(leftLines[i])
-		rl := rightPad.Render(rightLines[i])
-		b.WriteString(style.Border.Render("│") + ll + divColor.Render("│") + rl + divColor.Render("│") + "\n")
+	leftPad := lipgloss.NewStyle().Width(leftWidth)
+	rightPad := lipgloss.NewStyle().Width(rightWidth)
+	for i := range maxHeight {
+		b.WriteString(Border.Render("│") +
+			leftPad.Render(leftLines[i]) +
+			rightBorder.Render("│") +
+			rightPad.Render(rightLines[i]) +
+			rightBorder.Render("│") + "\n")
 	}
 
-	// Search input sits above the bottom border if active
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
-		searchPad := max(m.width-2-lipgloss.Width(searchLine), 0)
-		b.WriteString(style.Border.Render("│") + searchLine + strings.Repeat(" ", searchPad) + style.Border.Render("│") + "\n")
+		searchPad := max(m.width-singlePaneBorderCells-lipgloss.Width(searchLine), 0)
+		b.WriteString(Border.Render("│") + searchLine +
+			strings.Repeat(" ", searchPad) + Border.Render("│") + "\n")
 	}
 
-	// Bottom border
-	b.WriteString(style.Border.Render("└") + style.Border.Render(strings.Repeat("─", leftW)) + style.Border.Render("┴") + style.Border.Render(strings.Repeat("─", rightW)) + style.Border.Render("┘") + "\n")
-
-	// Help bar below the box
+	b.WriteString(Border.Render("└"+strings.Repeat("─", leftWidth)+"┴"+
+		strings.Repeat("─", rightWidth)+"┘") + "\n")
 	b.WriteString(helpBar)
-
 	return b.String()
 }
 
-func (m Model) renderSingleColumnLayout(content string, innerW int, helpBar string, contentHeight int) string {
-	lines := strings.Split(content, "\n")
-	for len(lines) < contentHeight {
-		lines = append(lines, "")
+func (m Model) renderStackedLayout(
+	timeline string,
+	transcript string,
+	innerWidth int,
+	timelineHeight int,
+	transcriptHeight int,
+	helpBar string,
+) string {
+	timelineLines := fitLines(timeline, timelineHeight)
+	transcriptLines := fitLines(transcript, transcriptHeight)
+	innerPad := lipgloss.NewStyle().Width(innerWidth)
+	rightBorder := Border
+	if m.isSelectMode() || m.isSearchMode() {
+		rightBorder = Accent
 	}
 
 	var b strings.Builder
-
-	// Top border
-	b.WriteString(style.Border.Render("┌") + style.Border.Render("─ Timeline "+strings.Repeat("─", max(innerW-11, 0))) + style.Border.Render("┐") + "\n")
-
-	innerPad := lipgloss.NewStyle().Width(innerW)
-	for _, line := range lines {
-		b.WriteString(style.Border.Render("│") + innerPad.Render(line) + style.Border.Render("│") + "\n")
+	b.WriteString(renderTitledBorder(
+		"┌",
+		"┐",
+		innerWidth,
+		m.leftPaneTitle(),
+		Border,
+		AccentBold,
+	) + "\n")
+	for _, line := range timelineLines {
+		b.WriteString(Border.Render("│") + innerPad.Render(line) +
+			Border.Render("│") + "\n")
+	}
+	b.WriteString(renderTitledBorder(
+		"├",
+		"┤",
+		innerWidth,
+		m.rightPaneTitle(),
+		rightBorder,
+		rightBorder,
+	) + "\n")
+	for _, line := range transcriptLines {
+		b.WriteString(rightBorder.Render("│") + innerPad.Render(line) +
+			rightBorder.Render("│") + "\n")
 	}
 
-	// Search input
 	if m.isSearchMode() {
 		searchLine := m.renderSearchInput()
-		searchPad := max(innerW-lipgloss.Width(searchLine), 0)
-		b.WriteString(style.Border.Render("│") + searchLine + strings.Repeat(" ", searchPad) + style.Border.Render("│") + "\n")
+		searchPad := max(innerWidth-lipgloss.Width(searchLine), 0)
+		b.WriteString(rightBorder.Render("│") + searchLine +
+			strings.Repeat(" ", searchPad) + rightBorder.Render("│") + "\n")
 	}
 
-	// Bottom border
-	b.WriteString(style.Border.Render("└") + style.Border.Render(strings.Repeat("─", innerW)) + style.Border.Render("┘") + "\n")
-
-	// Help bar below the box
+	b.WriteString(rightBorder.Render("└"+strings.Repeat("─", innerWidth)+"┘") + "\n")
 	b.WriteString(helpBar)
-
 	return b.String()
+}
+
+func (m Model) renderSingleColumnLayout(
+	content string,
+	innerWidth int,
+	helpBar string,
+	contentHeight int,
+) string {
+	lines := fitLines(content, contentHeight)
+	innerPad := lipgloss.NewStyle().Width(innerWidth)
+
+	var b strings.Builder
+	b.WriteString(renderTitledBorder(
+		"┌",
+		"┐",
+		innerWidth,
+		m.leftPaneTitle(),
+		Border,
+		AccentBold,
+	) + "\n")
+	for _, line := range lines {
+		b.WriteString(Border.Render("│") + innerPad.Render(line) +
+			Border.Render("│") + "\n")
+	}
+
+	if m.isSearchMode() {
+		searchLine := m.renderSearchInput()
+		searchPad := max(innerWidth-lipgloss.Width(searchLine), 0)
+		b.WriteString(Border.Render("│") + searchLine +
+			strings.Repeat(" ", searchPad) + Border.Render("│") + "\n")
+	}
+
+	b.WriteString(Border.Render("└"+strings.Repeat("─", innerWidth)+"┘") + "\n")
+	b.WriteString(helpBar)
+	return b.String()
+}
+
+func (m Model) leftPaneTitle() string {
+	activeEdge := "Start edge"
+	if !m.adjustingStart {
+		activeEdge = "End edge"
+	}
+	switch {
+	case m.mode == modeInput:
+		return "Trim · Enter " + strings.ToLower(activeEdge)
+	case m.isSelectMode():
+		return "Trim · Selection preview"
+	default:
+		return "Trim · " + activeEdge
+	}
 }
 
 func (m Model) rightPaneTitle() string {
-	if m.isSelectMode() && len(m.words) > 0 {
-		selCount := m.selectedWordCount()
-		return fmt.Sprintf(" Select Words %d/%d ", selCount, len(m.words))
+	switch {
+	case m.mode == modeSearchSelect:
+		return "Words · Search"
+	case m.isSelectMode() && len(m.words) > 0:
+		return fmt.Sprintf("Words · %d selected", m.selectedWordCount())
+	case m.mode == modeSearch:
+		return "Transcript · Search"
+	case !m.viewportLocked:
+		return "Transcript · Browsing"
+	default:
+		return "Transcript · Following"
 	}
-	return " Transcript "
 }

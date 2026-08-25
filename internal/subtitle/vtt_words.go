@@ -7,6 +7,13 @@ import (
 
 var vttCTagRe = regexp.MustCompile(`<(\d{2}:\d{2}:\d{2}\.\d{3})>`)
 
+const (
+	fullMatchStart = iota
+	fullMatchEnd
+	timestampMatchStart
+	timestampMatchEnd
+)
+
 // extractWordTimings extracts <c> tag timestamps from VTT cue text.
 // Returns nil if no <c> tags are found.
 func extractWordTimings(rawText string, cueStart float64) []WordTiming {
@@ -18,7 +25,7 @@ func extractWordTimings(rawText string, cueStart float64) []WordTiming {
 	var timings []WordTiming
 
 	// Text before the first <c> tag belongs to cueStart
-	firstTagStart := matches[0][0]
+	firstTagStart := matches[0][fullMatchStart]
 	prefix := stripTags(rawText[:firstTagStart])
 	prefix = strings.TrimSpace(prefix)
 	if prefix != "" {
@@ -30,16 +37,19 @@ func extractWordTimings(rawText string, cueStart float64) []WordTiming {
 
 	for i, match := range matches {
 		// match[2]:match[3] is the timestamp capture group
-		ts, err := parseTimestamp(rawText[match[2]:match[3]], vttTimestampRe)
+		ts, err := parseTimestamp(
+			rawText[match[timestampMatchStart]:match[timestampMatchEnd]],
+			vttTimestampRe,
+		)
 		if err != nil {
 			continue
 		}
 
 		// Text runs from after this tag to the start of the next tag (or end)
-		textStart := match[1] // end of the <timestamp> tag
+		textStart := match[fullMatchEnd]
 		var textEnd int
 		if i+1 < len(matches) {
-			textEnd = matches[i+1][0]
+			textEnd = matches[i+1][fullMatchStart]
 		} else {
 			textEnd = len(rawText)
 		}

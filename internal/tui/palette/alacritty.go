@@ -1,7 +1,6 @@
 package palette
 
 import (
-	"dis/internal/util"
 	"os"
 	"path/filepath"
 
@@ -48,7 +47,7 @@ func alacrittyConfigPath() string {
 	if home, err := os.UserHomeDir(); err == nil {
 		candidates = append(candidates, filepath.Join(home, ".alacritty.toml"))
 	}
-	return util.FirstExistingFile(candidates...)
+	return firstExistingFile(candidates...)
 }
 
 func parseAlacrittyPalette() *base16Palette {
@@ -66,15 +65,11 @@ func parseAlacrittyPalette() *base16Palette {
 }
 
 func parseAlacrittyFile(path string, p *base16Palette, depth int) {
-	if depth > 5 {
-		return
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	if depth > maxConfigIncludeDepth {
 		return
 	}
 	var cfg alacrittyConfig
-	if err := toml.Unmarshal(data, &cfg); err != nil {
+	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return
 	}
 
@@ -87,11 +82,11 @@ func parseAlacrittyFile(path string, p *base16Palette, depth int) {
 	applyHex(&p.Foreground, c.Primary.Foreground)
 	applyHex(&p.Background, c.Primary.Background)
 
-	normal := [8]string{
+	normal := [baseBrightBlack]string{
 		c.Normal.Black, c.Normal.Red, c.Normal.Green, c.Normal.Yellow,
 		c.Normal.Blue, c.Normal.Magenta, c.Normal.Cyan, c.Normal.White,
 	}
-	bright := [8]string{
+	bright := [baseBrightBlack]string{
 		c.Bright.Black, c.Bright.Red, c.Bright.Green, c.Bright.Yellow,
 		c.Bright.Blue, c.Bright.Magenta, c.Bright.Cyan, c.Bright.White,
 	}
@@ -99,6 +94,6 @@ func parseAlacrittyFile(path string, p *base16Palette, depth int) {
 		applyHex(&p.Color[i], v)
 	}
 	for i, v := range bright {
-		applyHex(&p.Color[8+i], v)
+		applyHex(&p.Color[baseBrightBlack+i], v)
 	}
 }

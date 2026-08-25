@@ -1,13 +1,13 @@
 package slider
 
 import (
-	"dis/internal/tui"
-	"dis/internal/tui/slider/style"
-	"dis/internal/util"
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/4evy/dis/internal/timecode"
+	"github.com/4evy/dis/internal/tui"
+
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -25,9 +25,9 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 	visibleCues := TranscriptVisibleCues
 	if targetHeight > 0 {
 		// Reserve up to 2 lines for scroll indicators (top + bottom)
-		visibleCues = max(targetHeight-2, TranscriptVisibleCues)
+		visibleCues = max(targetHeight-scrollIndicatorRows, 1)
 	}
-	pinOffset := visibleCues / 3
+	pinOffset := visibleCues / viewportPinDivisor
 
 	var startCue int
 	if m.viewportLocked {
@@ -49,47 +49,45 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 
 	// Scroll indicator above
 	if startCue > 0 {
-		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▲ %d more", startCue)))
+		lines = append(lines, Faint.Render(fmt.Sprintf("  ▲ %d more", startCue)))
 	}
 
 	activeBg := lipgloss.NewStyle().Background(tui.ColorSurface1)
-	textWidth := max(width-10, 10) // timestamp + padding
+	textWidth := max(width-transcriptTextInset, minimumTranscriptTextWidth)
 
 	// Count how many cues are below the active one for fade calculation
 	cuesBelowActive := max(endCue-activeCue-1, 1)
 
 	for i := startCue; i < endCue; i++ {
 		cue := m.transcript[i]
-		timeStr := util.FormatDurationShort(cue.Start)
+		timeStr := timecode.FormatShort(cue.Start)
 		isActive := i == activeCue
 
 		text := cue.Text
-		if lipgloss.Width(text) > textWidth && textWidth > 3 {
+		if lipgloss.Width(text) > textWidth && textWidth > minimumTruncationWidth {
 			text = ansi.Truncate(text, textWidth, "…")
 		}
 
 		sponsorCat := m.sponsorCategoryAt(cue.Start)
 		styledText := text
-		timeStyle := style.Faint
-		if isActive {
-			styledText = activeBg.Render(style.Accent.Render(text))
-		} else if searchSet[i] {
-			styledText = style.Warm.Render(text)
-		} else if sponsorCat != "" {
-			if sc, ok := style.SponsorCategories[sponsorCat]; ok {
+		timeStyle := Faint
+		switch {
+		case isActive:
+			styledText = activeBg.Render(Accent.Render(text))
+		case searchSet[i]:
+			styledText = Warm.Render(text)
+		case sponsorCat != "":
+			if sc, ok := SponsorCategories[sponsorCat]; ok {
 				styledText = sc.Color.Render(text)
 			}
-		} else if cue.End <= pos {
-			styledText = style.Faint.Render(text)
-		} else if i > activeCue {
+		case cue.End <= pos:
+			styledText = Faint.Render(text)
+		case i > activeCue:
 			// Apply fade gradient based on distance below active cue
 			dist := i - activeCue - 1
 			// Map distance to gradient index based on proportion of remaining cues
-			gradIdx := dist * len(style.Fade) / cuesBelowActive
-			if gradIdx >= len(style.Fade) {
-				gradIdx = len(style.Fade) - 1
-			}
-			fade := style.Fade[gradIdx]
+			gradIdx := min(dist*len(Fade)/cuesBelowActive, len(Fade)-1)
+			fade := Fade[gradIdx]
 			styledText = fade.Render(text)
 			timeStyle = fade
 		}
@@ -97,7 +95,7 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 		// Active indicator on right side
 		indicator := "  "
 		if isActive {
-			indicator = style.Accent.Render(" ◀")
+			indicator = Accent.Render(" ◀")
 		}
 
 		line := fmt.Sprintf("  %s  %s%s", timeStyle.Render(timeStr), styledText, indicator)
@@ -107,7 +105,7 @@ func (m Model) renderTranscriptPanel(width int, targetHeight int) string {
 	// Scroll indicator below
 	remaining := len(m.transcript) - endCue
 	if remaining > 0 {
-		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▼ %d more", remaining)))
+		lines = append(lines, Faint.Render(fmt.Sprintf("  ▼ %d more", remaining)))
 	}
 
 	return strings.Join(lines, "\n")

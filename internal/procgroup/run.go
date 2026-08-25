@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// DefaultGracePeriod is the time child processes get to exit after cancellation.
+const DefaultGracePeriod = 5 * time.Second
+
 // Run executes cmd with the standard process-group lifecycle:
 // Setup(gracePeriod) -> Start -> Track -> (onStart) -> Wait -> Untrack.
 //

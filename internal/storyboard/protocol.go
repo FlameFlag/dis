@@ -14,32 +14,45 @@ const (
 	GraphicsSixel
 )
 
+const (
+	envZellij      = "ZELLIJ"
+	envTerm        = "TERM"
+	envTermProgram = "TERM_PROGRAM"
+	xtermSixel     = "xterm-256color"
+)
+
+var protocolByTermProgram = map[string]GraphicsProtocol{
+	"WezTerm": GraphicsKitty,
+	"kitty":   GraphicsKitty,
+	"ghostty": GraphicsKitty,
+	"foot":    GraphicsSixel,
+	"mlterm":  GraphicsSixel,
+	"contour": GraphicsSixel,
+}
+
+var protocolByTerm = map[string]GraphicsProtocol{
+	"xterm-kitty": GraphicsKitty,
+}
+
 // DetectedProtocol returns the detected graphics protocol (cached after first call).
 var DetectedProtocol = sync.OnceValue(detectGraphics)
 
 func detectGraphics() GraphicsProtocol {
 	// Zellij does not support kitty graphics protocol and its sixel
 	// implementation is broken since v0.40.0. Fall back to half-block.
-	if os.Getenv("ZELLIJ") != "" {
+	if os.Getenv(envZellij) != "" {
 		return GraphicsNone
 	}
 
-	term := os.Getenv("TERM")
-	termProg := os.Getenv("TERM_PROGRAM")
-
-	// Kitty graphics protocol
-	if term == "xterm-kitty" ||
-		termProg == "WezTerm" ||
-		termProg == "kitty" ||
-		termProg == "ghostty" {
-		return GraphicsKitty
+	term := os.Getenv(envTerm)
+	termProgram := os.Getenv(envTermProgram)
+	if protocol, ok := protocolByTerm[term]; ok {
+		return protocol
 	}
-
-	// Sixel support: foot, xterm (with sixel build), mlterm, contour, etc.
-	if termProg == "foot" ||
-		termProg == "mlterm" ||
-		termProg == "contour" ||
-		term == "xterm-256color" && termProg == "" {
+	if protocol, ok := protocolByTermProgram[termProgram]; ok {
+		return protocol
+	}
+	if term == xtermSixel && termProgram == "" {
 		return GraphicsSixel
 	}
 

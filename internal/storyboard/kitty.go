@@ -3,10 +3,18 @@ package storyboard
 import (
 	"bytes"
 	"image"
-	"strings"
 
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/ansi/kitty"
 	xdraw "golang.org/x/image/draw"
+)
+
+const (
+	kittyCellPixelWidth  = 10
+	kittyCellPixelHeight = 20
+	kittyImageID         = 1
+	kittyQuietErrors     = 2
 )
 
 // RenderKitty renders an image using the Kitty graphics protocol.
@@ -17,7 +25,8 @@ func RenderKitty(img image.Image, cols, rows int) string {
 	}
 
 	// Pre-scale to high resolution so the terminal doesn't upscale a tiny source
-	pixW, pixH := cols*10, rows*20
+	pixW := cols * kittyCellPixelWidth
+	pixH := rows * kittyCellPixelHeight
 	resized := image.NewRGBA(image.Rect(0, 0, pixW, pixH))
 	xdraw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), xdraw.Over, nil)
 
@@ -27,8 +36,8 @@ func RenderKitty(img image.Image, cols, rows int) string {
 		Transmission:    kitty.Direct,
 		Format:          kitty.PNG,
 		Chunk:           true,
-		Quite:           2,
-		ID:              1,
+		Quiet:           kittyQuietErrors,
+		ID:              kittyImageID,
 		Columns:         cols,
 		Rows:            rows,
 		DoNotMoveCursor: true,
@@ -37,22 +46,18 @@ func RenderKitty(img image.Image, cols, rows int) string {
 		return ""
 	}
 
-	// Build output: APC escape on first line + cols spaces per line.
-	// DoNotMoveCursor keeps the cursor in place; the spaces provide correct
-	// lipgloss.Width() so padRight() works correctly in the bordered layout.
-	spaces := strings.Repeat(" ", cols)
-	var sb strings.Builder
-	sb.Write(buf.Bytes())
-	sb.WriteString(spaces)
-	for range rows - 1 {
-		sb.WriteByte('\n')
-		sb.WriteString(spaces)
-	}
-
-	return sb.String()
+	// DoNotMoveCursor keeps the cursor in place. Lip Gloss reserves the cell
+	// area so the surrounding layout measures the image correctly.
+	return lipgloss.NewStyle().Width(cols).Height(rows).Render(buf.String())
 }
 
 // DeleteKittyImage returns an escape sequence that deletes the Kitty image with ID=1.
 func DeleteKittyImage() string {
-	return "\x1b_Ga=d,d=i,i=1,q=2\x1b\\"
+	opts := &kitty.Options{
+		Action: kitty.Delete,
+		Delete: kitty.DeleteID,
+		ID:     kittyImageID,
+		Quiet:  kittyQuietErrors,
+	}
+	return ansi.KittyGraphics(nil, opts.Options()...)
 }

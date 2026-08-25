@@ -1,27 +1,19 @@
 package slider
 
 import (
-	"math"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
 )
 
-type animTickMsg struct{}
+type warningExpiredMsg string
 
-func animTick() tea.Cmd {
-	return tea.Tick(time.Second/AnimFPS, func(time.Time) tea.Msg {
-		return animTickMsg{}
+func expireWarning(warning string) tea.Cmd {
+	return tea.Tick(warningDisplayDuration, func(time.Time) tea.Msg {
+		return warningExpiredMsg(warning)
 	})
-}
-
-func (m *Model) triggerAnim() tea.Cmd {
-	if !m.anim.active {
-		m.anim.active = true
-		return animTick()
-	}
-	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -29,6 +21,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.keyHelp.SetWidth(max(msg.Width-keyHelpHorizontalInset, 0))
+		return m, nil
+	case warningExpiredMsg:
+		if m.warning == string(msg) {
+			m.warning = ""
+		}
 		return m, nil
 	case StoryboardReadyMsg:
 		m.storyboard = msg.Data
@@ -53,29 +51,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	case animTickMsg:
-		if m.warning != "" && time.Now().After(m.warningExpiry) {
-			m.warning = ""
-		}
-		if !m.anim.active {
-			return m, nil
-		}
-		m.anim.startPos, m.anim.startVel = m.anim.spring.Update(m.anim.startPos, m.anim.startVel, m.startPos)
-		m.anim.endPos, m.anim.endVel = m.anim.spring.Update(m.anim.endPos, m.anim.endVel, m.endPos)
-		// Settle threshold: half a column width in seconds
-		threshold := m.duration / float64(m.sliderWidth()) / 2
-		startSettled := math.Abs(m.anim.startPos-m.startPos) < threshold && math.Abs(m.anim.startVel) < threshold
-		endSettled := math.Abs(m.anim.endPos-m.endPos) < threshold && math.Abs(m.anim.endVel) < threshold
-		if startSettled && endSettled {
-			m.anim.startPos = m.startPos
-			m.anim.endPos = m.endPos
-			m.anim.startVel = 0
-			m.anim.endVel = 0
-			m.anim.active = false
-			return m, nil
-		}
-		return m, animTick()
 	case tea.KeyMsg:
+		// Ctrl-C is unconditional, including while a text field or help is open.
+		if key.Matches(msg, Cancel) {
+			m.cancelled = true
+			return m, tea.Quit
+		}
+
+		if m.helpVisible {
+			switch {
+			case key.Matches(msg, Help, Escape):
+				m.helpVisible = false
+				return m, nil
+			case key.Matches(msg, Up):
+				m.helpScroll = max(m.helpScroll-1, 0)
+				return m, nil
+			case key.Matches(msg, Down):
+				m.helpScroll = min(m.helpScroll+1, m.helpMaxOffset())
+				return m, nil
+			case key.Matches(msg, PageUp):
+				m.helpScroll = max(m.helpScroll-helpPageStep, 0)
+				return m, nil
+			case key.Matches(msg, PageDown):
+				m.helpScroll = min(m.helpScroll+helpPageStep, m.helpMaxOffset())
+				return m, nil
+			case key.Matches(msg, Quit):
+				m.cancelled = true
+				return m, tea.Quit
+			default:
+				return m, nil
+			}
+		}
+
+		// A question mark remains ordinary text while an input has focus.
+		if !m.isSearchMode() && m.mode != modeInput && key.Matches(msg, Help) {
+			m.helpVisible = true
+			m.helpScroll = 0
+			return m, nil
+		}
+
+		if !m.isSearchMode() && m.mode != modeInput && key.Matches(msg, Quit) {
+			m.cancelled = true
+			return m, tea.Quit
+		}
+
 		switch m.mode {
 		case modeSearch, modeSearchSelect:
 			return m.handleSearchMode(msg)

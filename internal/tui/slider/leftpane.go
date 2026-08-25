@@ -1,24 +1,25 @@
 package slider
 
 import (
-	"bytes"
-	"dis/internal/tui/slider/style"
-	"dis/internal/tui/slider/textbuf"
-	"dis/internal/util"
+	"slices"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/4evy/dis/internal/timecode"
+
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 	var lines []string
-	w := max(width-2, MinSliderWidth) // inner padding
+	w := max(width-singlePaneBorderCells, 1)
 
-	// Header: "✂ Trim" ... right-aligned M:SS
-	header := style.Bold.Render("✂ Trim")
-	durStr := style.Faint.Render(util.FormatDurationShort(m.duration))
-	pad := max(width-1-lipgloss.Width(header)-lipgloss.Width(durStr), 1)
-	lines = append(lines, " "+header+strings.Repeat(" ", pad)+durStr)
+	// Source and output metadata stay secondary to the editable range.
+	source := Faint.Render("Source") + " " +
+		Value.Render(timecode.FormatShort(m.duration))
+	format := m.renderFormatBadge()
+	pad := max(width-1-lipgloss.Width(source)-lipgloss.Width(format), 1)
+	lines = append(lines, " "+source+strings.Repeat(" ", pad)+format)
 
 	// Blank line
 	lines = append(lines, "")
@@ -42,33 +43,43 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 		lines = append(lines, " "+m.renderEndLabel(w))
 	}
 
-	// SponsorBlock segments row (kept for highlights ★ and as legend)
-	if len(m.sponsorSegments) > 0 {
-		lines = append(lines, " "+m.renderSponsorSegments(w))
+	// Keep current state and feedback next to the control they describe.
+	hasStatus := false
+	if m.warning != "" {
+		lines = append(lines,
+			" "+ansi.Truncate(Warn.Render(m.warning), w, "…"))
+		hasStatus = true
+	}
+	if loading := m.renderLoadingStatus(); loading != "" {
+		lines = append(lines, " "+ansi.Truncate(loading, w, "…"))
+		hasStatus = true
+	}
+	if !hasStatus {
+		lines = append(lines, "")
 	}
 
-	// Chapter labels (no connector row)
+	// Info row / inline input / select info
+	switch {
+	case m.isSelectMode():
+		lines = append(lines, m.renderSelectInfo())
+	case m.mode == modeInput:
+		lines = append(lines, m.renderInlineInput())
+	default:
+		lines = append(lines, m.renderInfoRow())
+	}
+
+	// Secondary timeline context follows the editable state so small terminals
+	// retain the range and any feedback before decorative detail.
+	if len(m.sponsorSegments) > 0 {
+		lines = append(lines, " "+m.renderSponsorSegments(w))
+		if legend := m.renderSponsorLegend(w); legend != "" {
+			lines = append(lines, " "+legend)
+		}
+	}
 	if len(m.chapters) > 0 {
 		if lbl := m.renderChapterLabels(w); lbl != "" {
 			lines = append(lines, " "+lbl)
 		}
-	}
-
-	// Blank line
-	lines = append(lines, "")
-
-	// Info row / inline input / select info
-	if m.isSelectMode() {
-		lines = append(lines, m.renderSelectInfo())
-	} else if m.mode == modeInput {
-		lines = append(lines, m.renderInlineInput())
-	} else {
-		lines = append(lines, m.renderInfoRow())
-	}
-
-	// Loading status row
-	if loading := m.renderLoadingStatus(); loading != "" {
-		lines = append(lines, " "+loading)
 	}
 
 	// Splits panel
@@ -77,29 +88,23 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 		lines = append(lines, m.renderSplitsPanelLines(w, MaxVisibleSplits)...)
 	}
 
-	// Collect bottom-pinned elements (thumbnail, warning, format badge)
+	// Keep the preview at the bottom and scale it to the remaining space.
 	var bottomLines []string
-
-	if thumb := m.renderThumbnail(w); thumb != "" {
+	mainHeight := lipgloss.Height(strings.Join(lines, "\n"))
+	availableThumbnailHeight := -1
+	if targetHeight > 0 {
+		availableThumbnailHeight = max(targetHeight-mainHeight-1, 0)
+	}
+	if thumb := m.renderThumbnail(w, availableThumbnailHeight); thumb != "" {
 		bottomLines = append(bottomLines, "")
 		for tl := range strings.SplitSeq(thumb, "\n") {
 			bottomLines = append(bottomLines, " "+tl)
 		}
 	}
 
-	if m.warning != "" {
-		bottomLines = append(bottomLines, "")
-		bottomLines = append(bottomLines, " "+style.Warn.Render(m.warning))
-	}
-
-	formatBadge := m.renderFormatBadge()
-	if formatBadge != "" {
-		bottomLines = append(bottomLines, strings.Repeat(" ", max(width-lipgloss.Width(formatBadge)-1, 0))+formatBadge)
-	}
-
 	// Insert padding between main content and bottom elements to fill height
 	if targetHeight > 0 {
-		usedLines := len(lines) + len(bottomLines)
+		usedLines := lipgloss.Height(strings.Join(lines, "\n")) + len(bottomLines)
 		for usedLines < targetHeight {
 			lines = append(lines, "")
 			usedLines++
@@ -112,71 +117,70 @@ func (m Model) renderLeftPaneWithHeight(width int, targetHeight int) string {
 
 func (m Model) renderTimeRuler(width int) (labels string, ticks string) {
 	if m.duration <= 0 {
-		return strings.Repeat(" ", width), style.Dim.Render(strings.Repeat("┈", width))
+		return strings.Repeat(" ", width), Dim.Render(strings.Repeat("┈", width))
 	}
 
 	pixelsPerSecond := float64(width) / m.duration
 
-	intervals := []float64{10, 15, 30, 60, 120, 300, 600}
-	interval := intervals[len(intervals)-1]
-	for _, iv := range intervals {
-		if iv*pixelsPerSecond >= 10 {
+	interval := rulerIntervals[len(rulerIntervals)-1]
+	for _, iv := range rulerIntervals {
+		if iv*pixelsPerSecond >= rulerMinimumTickSpacing {
 			interval = iv
 			break
 		}
 	}
 
-	labelBuf := bytes.Repeat([]byte{' '}, width)
+	occupied := make([]bool, width)
+	var labelLayers []*lipgloss.Layer
 
 	for t := 0.0; t <= m.duration; t += interval {
 		pos := int(t / m.duration * float64(width-1))
 		if pos >= width {
 			pos = width - 1
 		}
-		lbl := util.FormatDurationShort(t)
-		lblLen := len(lbl)
-		start := max(pos-lblLen/2, 0)
+		lbl := timecode.FormatShort(t)
+		lblLen := lipgloss.Width(lbl)
+		start := max(pos-lblLen/labelCenterDivisor, 0)
 		if start+lblLen > width {
 			start = width - lblLen
 		}
 		if start < 0 {
 			continue
 		}
-		if textbuf.HasOverlap(labelBuf, start, lblLen) {
+		if slices.Contains(occupied[start:start+lblLen], true) {
 			continue
 		}
-		textbuf.Place(labelBuf, start, lbl)
+		for i := start; i < start+lblLen; i++ {
+			occupied[i] = true
+		}
+		labelLayers = append(labelLayers, lipgloss.NewLayer(Faint.Render(lbl)).X(start))
 	}
 
-	labels = style.Faint.Render(string(labelBuf))
+	labelsCanvas := lipgloss.NewCanvas(width, 1)
+	labelsCanvas.Compose(lipgloss.NewCompositor(labelLayers...))
+	labels = labelsCanvas.Render()
 
 	// Build tick row with handle position markers (#4: playhead indicator)
-	startIdx := int(m.anim.startPos / m.duration * float64(width))
-	endIdx := int(m.anim.endPos / m.duration * float64(width))
-	if startIdx < 0 {
-		startIdx = 0
-	}
-	if endIdx >= width {
-		endIdx = width - 1
-	}
+	startIdx := max(int(m.startPos/m.duration*float64(width)), 0)
+	endIdx := min(int(m.endPos/m.duration*float64(width)), width-1)
 
 	var tickBuf strings.Builder
 	for i := range width {
 		switch i {
 		case startIdx:
 			if m.adjustingStart {
-				tickBuf.WriteString(style.AccentBold.Render("▼"))
+				tickBuf.WriteString(AccentBold.Render("▼"))
 			} else {
-				tickBuf.WriteString(style.Faint.Render("▼"))
+				tickBuf.WriteString(Faint.Render("▼"))
 			}
 		case endIdx:
 			if !m.adjustingStart {
-				tickBuf.WriteString(style.AccentBold.Render("▼"))
+				tickBuf.WriteString(AccentBold.Render("▼"))
 			} else {
-				tickBuf.WriteString(style.Faint.Render("▼"))
+				tickBuf.WriteString(Faint.Render("▼"))
 			}
 		default:
-			tickBuf.WriteString(style.Dim.Render("┈"))
+			tickBuf.WriteString(Dim.Render("┈"))
 		}
 	}
 	ticks = tickBuf.String()

@@ -14,24 +14,23 @@ func CellAt(data *StoryboardData, timestamp float64) image.Image {
 	info := &data.Info
 	cellsPerFragment := info.Rows * info.Columns
 	accumulated := 0.0
-	cellDuration := 0.0
 
 	// Find which fragment and cell index this timestamp falls in
 	for fragIdx, frag := range info.Fragments {
 		if cellsPerFragment == 0 {
 			continue
 		}
-		cellDuration = frag.Duration / float64(cellsPerFragment)
+		cellDuration := frag.Duration / float64(cellsPerFragment)
 		if cellDuration <= 0 {
 			continue
 		}
 
 		fragEnd := accumulated + frag.Duration
 		if timestamp < fragEnd || fragIdx == len(info.Fragments)-1 {
-			img, ok := data.Images[fragIdx]
-			if !ok {
+			if fragIdx >= len(data.Images) || data.Images[fragIdx] == nil {
 				return nil
 			}
+			img := data.Images[fragIdx]
 
 			// Cell index within this fragment
 			localTime := timestamp - accumulated

@@ -36,7 +36,7 @@ func parseKittyPalette() *base16Palette {
 }
 
 func parseKittyFile(path string, p *base16Palette, depth int) {
-	if depth > 5 {
+	if depth > maxConfigIncludeDepth {
 		return
 	}
 	f, err := os.Open(path)
@@ -54,7 +54,7 @@ func parseKittyFile(path string, p *base16Palette, depth int) {
 		}
 
 		fields := strings.Fields(line)
-		if len(fields) < 2 {
+		if len(fields) < kittyConfigFields {
 			continue
 		}
 		key, val := fields[0], fields[1]
@@ -74,10 +74,15 @@ func parseKittyFile(path string, p *base16Palette, depth int) {
 			p.Foreground = hex
 		case key == "background":
 			p.Background = hex
-		case strings.HasPrefix(key, "color"):
-			if idx, err := strconv.Atoi(key[5:]); err == nil && idx >= 0 && idx < 16 {
+		case strings.HasPrefix(key, kittyColorPrefix):
+			if idx, err := strconv.Atoi(key[len(kittyColorPrefix):]); err == nil && idx >= 0 && idx < len(p.Color) {
 				p.Color[idx] = hex
 			}
 		}
 	}
 }
+
+const (
+	kittyConfigFields = 2
+	kittyColorPrefix  = "color"
+)

@@ -1,13 +1,13 @@
 package slider
 
 import (
-	"dis/internal/tui"
-	"dis/internal/tui/slider/style"
-	"dis/internal/util"
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/4evy/dis/internal/timecode"
+	"github.com/4evy/dis/internal/tui"
+
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
@@ -15,9 +15,7 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 		return ""
 	}
 
-	markerCol := 3
-	timestampCol := 6
-	textWidth := max(width-markerCol-timestampCol, 20)
+	textWidth := max(width-wordMarkerWidth-wordTimestampWidth, minimumWordTextWidth)
 
 	type cueGroup struct {
 		cueIndex int
@@ -48,9 +46,9 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 
 	visibleCues := WordSelectVisibleCues
 	if targetHeight > 0 {
-		visibleCues = max(targetHeight-2, WordSelectVisibleCues)
+		visibleCues = max(targetHeight-scrollIndicatorRows, 1)
 	}
-	pinOffset := visibleCues / 3
+	pinOffset := visibleCues / viewportPinDivisor
 
 	startGroup := max(cursorGroup-pinOffset, 0)
 	endGroup := startGroup + visibleCues
@@ -71,19 +69,19 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 
 	// Scroll indicator above
 	if startGroup > 0 {
-		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▲ %d more", startGroup)))
+		lines = append(lines, Faint.Render(fmt.Sprintf("  ▲ %d more", startGroup)))
 	}
 
 	cursorTime := m.words[m.sel.cursor].Start
 
 	for gi := startGroup; gi < endGroup; gi++ {
 		g := groups[gi]
-		timestamp := util.FormatDurationShort(m.words[g.startIdx].Start)
-		tsPrefix := style.Dim.Render(fmt.Sprintf("%-5s ", timestamp))
+		timestamp := timecode.FormatShort(m.words[g.startIdx].Start)
+		tsPrefix := Dim.Render(fmt.Sprintf("%-5s ", timestamp))
 
 		marker := "   "
 		if gi == cursorGroup {
-			marker = style.Accent.Render(" › ")
+			marker = Accent.Render(" › ")
 		}
 
 		groupPassed := m.words[g.endIdx].End <= cursorTime
@@ -99,14 +97,14 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 			if wordText == "" {
 				continue
 			}
-			displayLen := len(wordText)
+			displayLen := lipgloss.Width(wordText)
 
 			if lineLen > 0 && lineLen+1+displayLen > textWidth {
 				if firstLine {
 					lines = append(lines, marker+tsPrefix+line.String())
 					firstLine = false
 				} else {
-					lines = append(lines, strings.Repeat(" ", markerCol+timestampCol)+line.String())
+					lines = append(lines, strings.Repeat(" ", wordMarkerWidth+wordTimestampWidth)+line.String())
 				}
 				line.Reset()
 				lineLen = 0
@@ -125,16 +123,16 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 			case isCursor && isSelected:
 				line.WriteString(cursorSelectedStyle.Render(wordText))
 			case isCursor:
-				line.WriteString(style.Reverse.Render(wordText))
+				line.WriteString(Reverse.Render(wordText))
 			case isSelected:
 				line.WriteString(selectedStyle.Render(wordText))
 			case isSearchMatch:
-				line.WriteString(style.Warm.Render(wordText))
+				line.WriteString(Warm.Render(wordText))
 			case groupPassed:
-				line.WriteString(style.Faint.Render(wordText))
+				line.WriteString(Faint.Render(wordText))
 			default:
 				if cat := m.sponsorCategoryAt(m.words[i].Start); cat != "" {
-					if sc, ok := style.SponsorCategories[cat]; ok {
+					if sc, ok := SponsorCategories[cat]; ok {
 						line.WriteString(sc.Color.Render(wordText))
 					} else {
 						line.WriteString(wordText)
@@ -150,14 +148,14 @@ func (m Model) renderWordSelectPanel(width int, targetHeight int) string {
 			if firstLine {
 				lines = append(lines, marker+tsPrefix+line.String())
 			} else {
-				lines = append(lines, strings.Repeat(" ", markerCol+timestampCol)+line.String())
+				lines = append(lines, strings.Repeat(" ", wordMarkerWidth+wordTimestampWidth)+line.String())
 			}
 		}
 	}
 
 	// Scroll indicator below
 	if endGroup < len(groups) {
-		lines = append(lines, style.Faint.Render(fmt.Sprintf("  ▼ %d more", len(groups)-endGroup)))
+		lines = append(lines, Faint.Render(fmt.Sprintf("  ▼ %d more", len(groups)-endGroup)))
 	}
 
 	return strings.Join(lines, "\n")

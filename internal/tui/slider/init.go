@@ -1,11 +1,11 @@
 package slider
 
 import (
-	"dis/internal/sponsorblock"
-	"dis/internal/storyboard"
-	"dis/internal/subtitle"
+	"github.com/4evy/dis/internal/sponsorblock"
+	"github.com/4evy/dis/internal/storyboard"
+	"github.com/4evy/dis/internal/subtitle"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // StoryboardReadyMsg is sent when background storyboard fetch completes.

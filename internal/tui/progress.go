@@ -2,21 +2,24 @@ package tui
 
 import (
 	"context"
-	"dis/internal/util"
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/harmonica"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/4evy/dis/internal/timecode"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/dustin/go-humanize"
 )
 
 var (
-	progressMsgStyle = lipgloss.NewStyle().Foreground(ColorText)
-	progressETAStyle = lipgloss.NewStyle().Foreground(ColorOverlay0)
-	progressPctStyle = lipgloss.NewStyle().Foreground(ColorTeal)
+	progressMsgStyle   = lipgloss.NewStyle().Foreground(ColorText)
+	progressETAStyle   = lipgloss.NewStyle().Foreground(ColorOverlay0)
+	progressPctStyle   = lipgloss.NewStyle().Foreground(ColorTeal)
+	progressEmptyStyle = lipgloss.NewStyle().Foreground(ColorSurface1)
 )
 
 // ErrUserCancelled is returned when the user presses Ctrl+C during progress.
@@ -26,8 +29,8 @@ var ErrUserCancelled = errors.New("cancelled by user")
 type ProgressMode int
 
 const (
-	ProgressModeBar       ProgressMode = iota // Conversion: braille wave
-	ProgressModeSparkline                     // Download: sparkline + speed
+	ProgressModeBar ProgressMode = iota
+	ProgressModeDownload
 )
 
 // ProgressInfo carries progress state from the worker to the TUI.
@@ -40,38 +43,25 @@ type ProgressInfo struct {
 }
 
 const (
-	// speedRingSize is the number of samples in the sparkline ring buffer.
-	speedRingSize = 64
-	// maxSparkLevel is the maximum index into spark/braille character arrays.
-	maxSparkLevel    = 7
-	waveFrequency    = math.Pi / 5.0
-	waveCenter       = 3.5
-	waveAmplitude    = 3.5
-	defaultTermWidth = 80
+	defaultProgressWidth    = 46
+	minimumProgressWidth    = 10
+	progressHorizontalInset = 2
+	progressPercentComplete = 100.0
+	progressUpdateBuffer    = 100
+	etaEstimationDelay      = 500 * time.Millisecond
 )
 
 type progressModel struct {
 	message   string
 	mode      ProgressMode
+	barWidth  int
 	info      ProgressInfo
 	done      bool
 	cancelled bool
 	err       error
 	doneCh    chan struct{}
 	updateCh  chan ProgressInfo
-	width     int
 	startTime time.Time
-
-	// Sparkline ring buffer (ProgressModeSparkline)
-	speedRing [speedRingSize]float64
-	ringHead  int
-	ringLen   int
-
-	// Braille wave animation (ProgressModeBar)
-	spring      harmonica.Spring
-	displayPct  float64
-	pctVelocity float64
-	wavePhase   float64
 }
 
 type (
@@ -79,14 +69,8 @@ type (
 	infoMsg ProgressInfo
 )
 
-type tickMsg time.Time
-
-func tickCmd() tea.Cmd {
-	return tea.Tick(time.Second/60, func(t time.Time) tea.Msg { return tickMsg(t) })
-}
-
 func (m progressModel) Init() tea.Cmd {
-	return tea.Batch(m.waitForUpdates(), tickCmd())
+	return m.waitForUpdates()
 }
 
 func (m progressModel) waitForUpdates() tea.Cmd {
@@ -110,6 +94,7 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 			return m, tea.Quit
 		}
+		return m, nil
 
 	case doneMsg:
 		m.done = true
@@ -118,92 +103,111 @@ func (m progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case infoMsg:
 		m.info = ProgressInfo(msg)
-		if m.mode == ProgressModeSparkline {
-			if m.info.Speed > 0 {
-				m.pushSpeed(m.info.Speed)
-			} else if m.info.Percent > 0 {
-				// Fragment-based downloads lack byte speed; push percent
-				// so the sparkline still has data to render.
-				m.pushSpeed(m.info.Percent)
-			}
-		}
 		return m, m.waitForUpdates()
 
-	case tickMsg:
-		m.displayPct, m.pctVelocity = m.spring.Update(m.displayPct, m.pctVelocity, m.info.Percent)
-		m.wavePhase += 0.1
-		return m, tickCmd()
-
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
+		m.barWidth = min(defaultProgressWidth,
+			max(msg.Width-progressHorizontalInset, minimumProgressWidth))
 		return m, nil
 	}
+
 	return m, nil
 }
 
-func (m *progressModel) pushSpeed(speed float64) {
-	m.speedRing[m.ringHead] = speed
-	m.ringHead = (m.ringHead + 1) % len(m.speedRing)
-	if m.ringLen < len(m.speedRing) {
-		m.ringLen++
-	}
-}
-
-func (m progressModel) View() string {
+func (m progressModel) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
-	return m.viewBar()
+	return tea.NewView(m.viewBar())
 }
 
 func (m progressModel) viewBar() string {
-	// Line 1: message
 	line1 := " " + progressMsgStyle.Render(m.message)
-
-	// Line 2: braille wave + percentage + ETA
-	barW := 40
-	wave := m.renderBrailleWave(barW)
-
-	pctStr := ""
-	if m.info.Percent > 0 {
-		pctStr = fmt.Sprintf(" %d%%", int(m.info.Percent))
+	lines := []string{line1, " " + m.renderBar()}
+	if details := m.details(); details != "" {
+		lines = append(lines, " "+progressETAStyle.Render(details))
 	}
+	return strings.Join(lines, "\n") + "\n"
+}
 
-	etaStr := ""
-	if m.info.Percent > 0 && m.info.Percent < 100 {
-		elapsed := time.Since(m.startTime).Seconds()
-		if elapsed > 0.5 {
-			remaining := elapsed / m.info.Percent * (100 - m.info.Percent)
-			etaStr = "  ETA " + util.FormatETAShort(time.Duration(remaining*float64(time.Second)))
+func (m progressModel) renderBar() string {
+	percent := min(1, max(0, m.info.Percent/progressPercentComplete))
+	pctView := progressPctStyle.Render(
+		fmt.Sprintf(" %3.0f%%", percent*progressPercentComplete),
+	)
+	barWidth := max(m.barWidth-lipgloss.Width(pctView), 0)
+	filled := min(barWidth, max(0, int(math.Round(float64(barWidth)*percent))))
+
+	var b strings.Builder
+	if filled > 0 {
+		for _, c := range lipgloss.Blend1D(filled, ColorTeal, ColorPeach) {
+			b.WriteString(lipgloss.NewStyle().Foreground(c).Render("█"))
+		}
+	}
+	if empty := barWidth - filled; empty > 0 {
+		b.WriteString(progressEmptyStyle.Render(strings.Repeat("░", empty)))
+	}
+	b.WriteString(pctView)
+	return b.String()
+}
+
+func (m progressModel) details() string {
+	var details []string
+	if m.mode == ProgressModeDownload {
+		switch {
+		case m.info.Downloaded > 0 && m.info.Total > 0:
+			details = append(details, fmt.Sprintf("%s / %s",
+				humanize.IBytes(uint64(m.info.Downloaded)),
+				humanize.IBytes(uint64(m.info.Total))))
+		case m.info.Downloaded > 0:
+			details = append(details, humanize.IBytes(uint64(m.info.Downloaded)))
+		}
+		if m.info.Speed > 0 {
+			details = append(details, humanize.IBytes(uint64(m.info.Speed))+"/s")
 		}
 	}
 
-	line2 := " " + wave + progressPctStyle.Render(pctStr) + progressETAStyle.Render(etaStr)
-
-	return line1 + "\n" + line2 + "\n"
+	eta := m.info.ETA
+	if eta <= 0 && m.info.Percent > 0 && m.info.Percent < progressPercentComplete {
+		elapsed := time.Since(m.startTime)
+		if elapsed > etaEstimationDelay {
+			remaining := elapsed.Seconds() / m.info.Percent *
+				(progressPercentComplete - m.info.Percent)
+			eta = time.Duration(remaining * float64(time.Second))
+		}
+	}
+	if eta > 0 {
+		details = append(details, "ETA "+timecode.FormatETA(eta))
+	}
+	return strings.Join(details, " · ")
 }
 
-// RunWithProgress runs a function while showing an animated progress display.
-// Use ProgressModeSparkline for downloads (sparkline + speed).
-// Use ProgressModeBar for conversions (braille wave animation).
-func RunWithProgress(ctx context.Context, message string, mode ProgressMode, fn func(onProgress func(ProgressInfo)) error) error {
-	doneCh := make(chan struct{})
-	updateCh := make(chan ProgressInfo, 100)
+// RunWithProgress runs a function while showing a progress display.
+// Download mode also displays transfer size, speed, and ETA when available.
+func RunWithProgress(
+	ctx context.Context,
+	message string,
+	mode ProgressMode,
+	fn func(context.Context, func(ProgressInfo)) error,
+) error {
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
+	doneCh := make(chan struct{})
+	updateCh := make(chan ProgressInfo, progressUpdateBuffer)
 	m := progressModel{
 		mode:      mode,
 		message:   message,
+		barWidth:  defaultProgressWidth,
 		doneCh:    doneCh,
 		updateCh:  updateCh,
-		width:     defaultTermWidth,
 		startTime: time.Now(),
-		spring:    harmonica.NewSpring(harmonica.FPS(60), 6.0, 1.0),
 	}
 
-	p := tea.NewProgram(m, tea.WithContext(ctx))
+	p := tea.NewProgram(m, tea.WithContext(runCtx))
 
 	go func() {
-		fnErr := fn(func(info ProgressInfo) {
+		fnErr := fn(runCtx, func(info ProgressInfo) {
 			select {
 			case updateCh <- info:
 			default:
@@ -215,6 +219,9 @@ func RunWithProgress(ctx context.Context, message string, mode ProgressMode, fn 
 
 	result, err := p.Run()
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return err
 	}
 	if finalModel, ok := result.(progressModel); ok {

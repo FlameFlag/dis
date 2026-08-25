@@ -7,36 +7,48 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"go.etcd.io/bbolt"
 )
 
-const TTL = 6 * time.Hour
-
-var (
-	bucketMetadata     = []byte("metadata")
-	bucketTranscript   = []byte("transcript")
-	bucketSponsorBlock = []byte("sponsorblock")
-
-	allBuckets = [][]byte{bucketMetadata, bucketTranscript, bucketSponsorBlock}
-
-	expireOnce sync.Once
+const (
+	TTL                            = 6 * time.Hour
+	cacheDirectory                 = "dis"
+	cacheFilename                  = "cache.bolt"
+	cacheDirectoryMode os.FileMode = 0o700
+	cacheFileMode      os.FileMode = 0o600
+	cacheOpenTimeout               = time.Second
 )
 
+// Bucket identifies a typed cache namespace.
+type Bucket string
+
+const (
+	Metadata     Bucket = "metadata"
+	Transcript   Bucket = "transcript"
+	SponsorBlock Bucket = "sponsorblock"
+	Storyboard   Bucket = "storyboard"
+)
+
+var allBuckets = []Bucket{Metadata, Transcript, SponsorBlock, Storyboard}
+
+// entry retains the original on-disk envelope. Data contains a second JSON
+// document so databases written before Store became generic remain readable.
 type entry struct {
 	Data      []byte    `json:"d"`
 	CreatedAt time.Time `json:"t"`
 }
 
 // Store is a typed cache backed by bbolt.
-type Store struct{ db *bbolt.DB }
+type Store struct {
+	db         *bbolt.DB
+	expireOnce sync.Once
+}
 
 // TryOpen opens the cache, returning the store and true on success.
-// On failure it logs a debug message and returns nil, false.
+// On failure it returns nil, false.
 func TryOpen() (*Store, bool) {
 	s, err := Open()
 	if err != nil {
-		log.Debug("cache unavailable", "err", err)
 		return nil, false
 	}
 	return s, true
@@ -48,13 +60,13 @@ func Open() (*Store, error) {
 	if err != nil {
 		dir = os.TempDir()
 	}
-	dir = filepath.Join(dir, "dis")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir = filepath.Join(dir, cacheDirectory)
+	if err := os.MkdirAll(dir, cacheDirectoryMode); err != nil {
 		return nil, err
 	}
 
-	db, err := bbolt.Open(filepath.Join(dir, "cache.bolt"), 0o644, &bbolt.Options{
-		Timeout: 1 * time.Second,
+	db, err := bbolt.Open(filepath.Join(dir, cacheFilename), cacheFileMode, &bbolt.Options{
+		Timeout: cacheOpenTimeout,
 	})
 	if err != nil {
 		return nil, err
@@ -62,7 +74,7 @@ func Open() (*Store, error) {
 
 	if err := db.Update(func(tx *bbolt.Tx) error {
 		for _, name := range allBuckets {
-			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
+			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
 				return err
 			}
 		}
@@ -78,12 +90,12 @@ func Open() (*Store, error) {
 // Close closes the underlying database.
 func (s *Store) Close() error { return s.db.Close() }
 
-// DeleteExpired removes stale entries from all buckets. Runs at most once per process.
+// DeleteExpired removes stale entries from all buckets. It runs once per store.
 func (s *Store) DeleteExpired() {
-	expireOnce.Do(func() {
+	s.expireOnce.Do(func() {
 		_ = s.db.Update(func(tx *bbolt.Tx) error {
 			for _, name := range allBuckets {
-				b := tx.Bucket(name)
+				b := tx.Bucket([]byte(name))
 				if b == nil {
 					continue
 				}
@@ -100,10 +112,10 @@ func (s *Store) DeleteExpired() {
 	})
 }
 
-func get(s *Store, bucket []byte, key string) ([]byte, bool) {
-	var data []byte
+// Get retrieves and decodes a value from a bucket.
+func (s *Store) Get[T any](bucket Bucket, key string) (value T, ok bool) {
 	_ = s.db.View(func(tx *bbolt.Tx) error {
-		v := tx.Bucket(bucket).Get([]byte(key))
+		v := tx.Bucket([]byte(bucket)).Get([]byte(key))
 		if v == nil {
 			return nil
 		}
@@ -114,25 +126,26 @@ func get(s *Store, bucket []byte, key string) ([]byte, bool) {
 		if time.Since(e.CreatedAt) > TTL {
 			return nil
 		}
-		data = e.Data
+		if err := json.Unmarshal(e.Data, &value); err != nil {
+			return nil
+		}
+		ok = true
 		return nil
 	})
-	return data, data != nil
+	return value, ok
 }
 
-func set(s *Store, bucket []byte, key string, data []byte) {
+// Set encodes and stores a value in a bucket.
+func (s *Store) Set[T any](bucket Bucket, key string, value T) {
 	_ = s.db.Update(func(tx *bbolt.Tx) error {
+		data, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
 		raw, err := json.Marshal(entry{Data: data, CreatedAt: time.Now()})
 		if err != nil {
 			return err
 		}
-		return tx.Bucket(bucket).Put([]byte(key), raw)
+		return tx.Bucket([]byte(bucket)).Put([]byte(key), raw)
 	})
 }
-
-func (s *Store) GetMetadata(key string) ([]byte, bool)     { return get(s, bucketMetadata, key) }
-func (s *Store) SetMetadata(key string, data []byte)       { set(s, bucketMetadata, key, data) }
-func (s *Store) GetTranscript(key string) ([]byte, bool)   { return get(s, bucketTranscript, key) }
-func (s *Store) SetTranscript(key string, data []byte)     { set(s, bucketTranscript, key, data) }
-func (s *Store) GetSponsorBlock(key string) ([]byte, bool) { return get(s, bucketSponsorBlock, key) }
-func (s *Store) SetSponsorBlock(key string, data []byte)   { set(s, bucketSponsorBlock, key, data) }

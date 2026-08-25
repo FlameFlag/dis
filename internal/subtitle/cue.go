@@ -1,18 +1,18 @@
 package subtitle
 
 import (
-	"dis/internal/util"
 	"html"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
-var (
-	arrowRe = regexp.MustCompile(`\s*-->\s*`)
-	tagRe   = regexp.MustCompile(`<[^>]+>`)
-)
+const cueTimeEpsilon = 0.001
+
+var tagRe = regexp.MustCompile(`<[^>]+>`)
 
 func stripTags(s string) string {
 	return html.UnescapeString(tagRe.ReplaceAllString(s, ""))
@@ -41,7 +41,10 @@ func hmsToSeconds(h, m, s, ms string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return float64(hours)*3600 + float64(minutes)*60 + float64(seconds) + float64(millis)/1000, nil
+	return float64(hours)*time.Hour.Seconds() +
+		float64(minutes)*time.Minute.Seconds() +
+		float64(seconds) +
+		float64(millis)/millisecondsPerSecond, nil
 }
 
 // Cue is a single subtitle entry with timing and plain text.
@@ -84,16 +87,29 @@ func (t Transcript) NearestCue(seconds float64) int {
 	if len(t) == 0 {
 		return -1
 	}
-	return util.NearestIndex(t, seconds, func(c Cue) float64 { return c.Start })
+	index := sort.Search(len(t), func(index int) bool {
+		return t[index].Start >= seconds
+	})
+	if index == 0 {
+		return 0
+	}
+	if index == len(t) {
+		return len(t) - 1
+	}
+	if seconds-t[index-1].Start <= t[index].Start-seconds {
+		return index - 1
+	}
+	return index
 }
 
 // NextCueStart returns the start time of the next cue after the given time.
 // Returns -1 if there is no next cue.
 func (t Transcript) NextCueStart(after float64) float64 {
-	for _, c := range t {
-		if c.Start > after+0.001 {
-			return c.Start
-		}
+	i := sort.Search(len(t), func(i int) bool {
+		return t[i].Start > after+cueTimeEpsilon
+	})
+	if i < len(t) {
+		return t[i].Start
 	}
 	return -1
 }
@@ -101,15 +117,13 @@ func (t Transcript) NextCueStart(after float64) float64 {
 // PrevCueStart returns the start time of the previous cue before the given time.
 // Returns -1 if there is no previous cue.
 func (t Transcript) PrevCueStart(before float64) float64 {
-	result := -1.0
-	for _, c := range t {
-		if c.Start < before-0.001 {
-			result = c.Start
-		} else {
-			break
-		}
+	i := sort.Search(len(t), func(i int) bool {
+		return t[i].Start >= before-cueTimeEpsilon
+	})
+	if i > 0 {
+		return t[i-1].Start
 	}
-	return result
+	return -1
 }
 
 // Search returns indices of cues whose text contains the query (case-insensitive).

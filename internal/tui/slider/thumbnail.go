@@ -1,29 +1,35 @@
 package slider
 
 import (
-	"dis/internal/storyboard"
-	"fmt"
+	"strconv"
+
+	"github.com/4evy/dis/internal/storyboard"
 )
 
 // thumbnailCache stores the last rendered thumbnail to avoid re-rendering on every frame.
 type thumbnailCache struct {
 	cellKey string
 	width   int
+	height  int
 	output  string
 }
 
 var thumbCache thumbnailCache
 
-func (m Model) renderThumbnail(width int) string {
-	if m.storyboard == nil || m.height < 25 {
+func (m Model) renderThumbnail(width, maxHeight int) string {
+	if m.storyboard == nil || m.height < minimumThumbnailScreenHeight || m.isStacked() ||
+		(maxHeight >= 0 && maxHeight < minimumThumbnailHeight) {
 		if storyboard.IsKittySupported() {
 			return storyboard.DeleteKittyImage()
 		}
 		return ""
 	}
 
-	thumbW := min(width-2, 56)
-	thumbH := 14 // character rows = 28 pixels tall in half-block mode
+	thumbW := min(width-thumbnailHorizontalInset, thumbnailMaximumWidth)
+	thumbH := thumbnailDefaultHeight
+	if maxHeight > 0 {
+		thumbH = min(thumbH, maxHeight)
+	}
 
 	// Quantize position to cell boundary to avoid re-rendering every frame
 	pos := m.activePos()
@@ -37,9 +43,10 @@ func (m Model) renderThumbnail(width int) string {
 		return ""
 	}
 	quantized := int(pos / cellDuration)
-	cacheKey := fmt.Sprintf("%d", quantized)
+	cacheKey := strconv.Itoa(quantized)
 
-	if thumbCache.cellKey == cacheKey && thumbCache.width == thumbW {
+	if thumbCache.cellKey == cacheKey && thumbCache.width == thumbW &&
+		thumbCache.height == thumbH {
 		return thumbCache.output
 	}
 
@@ -57,6 +64,11 @@ func (m Model) renderThumbnail(width int) string {
 	default:
 		rendered = storyboard.RenderHalfBlock(cell, thumbW, thumbH)
 	}
-	thumbCache = thumbnailCache{cellKey: cacheKey, width: thumbW, output: rendered}
+	thumbCache = thumbnailCache{
+		cellKey: cacheKey,
+		width:   thumbW,
+		height:  thumbH,
+		output:  rendered,
+	}
 	return rendered
 }

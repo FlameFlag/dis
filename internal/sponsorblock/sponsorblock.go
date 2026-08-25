@@ -1,16 +1,8 @@
 package sponsorblock
 
 import (
-	"context"
-	"dis/internal/cache"
-	"dis/internal/util"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-	"regexp"
-	"time"
+	"slices"
+	"strings"
 )
 
 // Category is a typed SponsorBlock segment category.
@@ -28,14 +20,22 @@ const (
 	CategoryFiller        Category = "filler"
 )
 
-// AllCategories returns all known SponsorBlock categories.
-func AllCategories() []Category {
-	return []Category{
-		CategorySponsor, CategoryIntro, CategoryOutro, CategorySelfPromo,
-		CategoryInteraction, CategoryMusicOfftopic, CategoryPreview,
-		CategoryHighlight, CategoryFiller,
-	}
+const supportedExtractor = "youtube"
+
+// SupportsExtractor reports whether SponsorBlock accepts IDs from a yt-dlp
+// extractor.
+func SupportsExtractor(extractor string) bool {
+	return strings.EqualFold(extractor, supportedExtractor)
 }
+
+// AllCategories returns all known SponsorBlock categories.
+var allCategories = [...]Category{
+	CategorySponsor, CategoryIntro, CategoryOutro, CategorySelfPromo,
+	CategoryInteraction, CategoryMusicOfftopic, CategoryPreview,
+	CategoryHighlight, CategoryFiller,
+}
+
+func AllCategories() []Category { return slices.Clone(allCategories[:]) }
 
 // Action is a typed SponsorBlock action type.
 type Action string
@@ -56,73 +56,15 @@ type Segment struct {
 }
 
 const (
-	apiBase = "https://sponsor.ajay.app/api/skipSegments"
+	apiBase           = "https://sponsor.ajay.app/api/skipSegments"
+	segmentStartIndex = 0
+	segmentEndIndex   = 1
+	segmentBounds     = 2
 )
 
 // apiResponse is the JSON structure returned by the SponsorBlock API.
 type apiResponse struct {
-	Segment    [2]float64 `json:"segment"`
-	Category   Category   `json:"category"`
-	ActionType string     `json:"actionType"`
-}
-
-var videoIDPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?:youtube\.com/watch\?.*v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([a-zA-Z0-9_-]{11})`),
-}
-
-// ExtractVideoID extracts the YouTube video ID from a URL.
-// Returns empty string for non-YouTube URLs.
-func ExtractVideoID(rawURL string) string {
-	for _, re := range videoIDPatterns {
-		if matches := re.FindStringSubmatch(rawURL); len(matches) > 1 {
-			return matches[1]
-		}
-	}
-	return ""
-}
-
-// GetSegments returns SponsorBlock segments for a video, using a local cache.
-func GetSegments(ctx context.Context, videoID string) ([]Segment, error) {
-	return cache.FetchCached(
-		videoID,
-		(*cache.Store).GetSponsorBlock,
-		(*cache.Store).SetSponsorBlock,
-		func() ([]Segment, error) {
-			return fetchSegments(ctx, videoID)
-		},
-	)
-}
-
-func fetchSegments(ctx context.Context, videoID string) ([]Segment, error) {
-	cats, _ := json.Marshal(AllCategories())
-	u := fmt.Sprintf("%s?videoID=%s&categories=%s", apiBase, url.QueryEscape(videoID), url.QueryEscape(string(cats)))
-
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	body, err := util.HTTPGet(ctx, u, nil)
-	if err != nil {
-		// A 404 means "no segments for this video", not a real error.
-		var httpErr *util.HTTPError
-		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var apiSegs []apiResponse
-	if err := json.Unmarshal(body, &apiSegs); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
-	}
-
-	segments := make([]Segment, 0, len(apiSegs))
-	for _, s := range apiSegs {
-		segments = append(segments, Segment{
-			Start:    s.Segment[0],
-			End:      s.Segment[1],
-			Category: s.Category,
-			Action:   Action(s.ActionType),
-		})
-	}
-	return segments, nil
+	Segment    [segmentBounds]float64 `json:"segment"`
+	Category   Category               `json:"category"`
+	ActionType string                 `json:"actionType"`
 }

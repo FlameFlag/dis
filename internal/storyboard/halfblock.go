@@ -1,11 +1,16 @@
 package storyboard
 
 import (
-	"fmt"
 	"image"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
 	xdraw "golang.org/x/image/draw"
+)
+
+const (
+	halfBlockPixelHeight = 2
+	colorChannelShift    = 8
 )
 
 // RenderHalfBlock renders an image as a string using half-block characters (▀)
@@ -17,22 +22,31 @@ func RenderHalfBlock(img image.Image, targetW, targetH int) string {
 	}
 
 	// Resize to targetW x (targetH*2) pixels
-	pixH := targetH * 2
+	pixH := targetH * halfBlockPixelHeight
 	resized := image.NewRGBA(image.Rect(0, 0, targetW, pixH))
 	xdraw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), xdraw.Over, nil)
 
 	var b strings.Builder
-	for y := 0; y < pixH; y += 2 {
+	for y := 0; y < pixH; y += halfBlockPixelHeight {
 		for x := range targetW {
 			tr, tg, tb, _ := resized.At(x, y).RGBA()
 			br, bg, bb, _ := resized.At(x, y+1).RGBA()
-			// RGBA returns 16-bit values; shift to 8-bit
-			fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm▀",
-				tr>>8, tg>>8, tb>>8,
-				br>>8, bg>>8, bb>>8)
+			style := ansi.Style{}.
+				ForegroundColor(ansi.RGBColor{
+					R: uint8(tr >> colorChannelShift),
+					G: uint8(tg >> colorChannelShift),
+					B: uint8(tb >> colorChannelShift),
+				}).
+				BackgroundColor(ansi.RGBColor{
+					R: uint8(br >> colorChannelShift),
+					G: uint8(bg >> colorChannelShift),
+					B: uint8(bb >> colorChannelShift),
+				})
+			b.WriteString(style.String())
+			b.WriteRune('▀')
 		}
-		b.WriteString("\x1b[0m")
-		if y+2 < pixH {
+		b.WriteString(ansi.ResetStyle)
+		if y+halfBlockPixelHeight < pixH {
 			b.WriteByte('\n')
 		}
 	}

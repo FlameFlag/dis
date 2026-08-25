@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 	"github.com/dustin/go-humanize"
 )
 
@@ -13,13 +14,22 @@ var (
 	cellStyle   = lipgloss.NewStyle().Padding(0, 1)
 	greenStyle  = lipgloss.NewStyle().Foreground(ColorGreen).Padding(0, 1)
 	redStyle    = lipgloss.NewStyle().Foreground(ColorRed).Padding(0, 1)
-	borderStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(ColorSurface1).Padding(0, 1)
+)
+
+const percentComplete = 100.0
+
+const (
+	compressedColumn = iota + 1
+	savedColumn
 )
 
 // PrintResultsTable prints a styled comparison table of original vs compressed size.
 func PrintResultsTable(originalSize, compressedSize int64) {
 	saved := originalSize - compressedSize
-	savedPct := float64(saved) / float64(originalSize) * 100
+	var savedPct float64
+	if originalSize != 0 {
+		savedPct = float64(saved) / float64(originalSize) * percentComplete
+	}
 
 	origStr := humanize.IBytes(uint64(originalSize))
 
@@ -41,20 +51,25 @@ func PrintResultsTable(originalSize, compressedSize int64) {
 	pctStr := fmt.Sprintf("%s%.2f%%", savedSymbol, math.Abs(savedPct))
 	savedStr := fmt.Sprintf("%s%s (%s)", savedSymbol, humanize.IBytes(uint64(int64(math.Abs(float64(saved))))), pctStr)
 
-	header := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		headerStyle.Render("Original"),
-		headerStyle.Render("Compressed"),
-		headerStyle.Render(savedLabel),
-	)
+	columnStyles := map[int]lipgloss.Style{
+		compressedColumn: compStyle,
+		savedColumn:      savedColorStyle,
+	}
+	results := table.New().
+		Headers("Original", "Compressed", savedLabel).
+		Row(origStr, compStr, savedStr).
+		BorderColumn(false).
+		BorderHeader(false).
+		BorderStyle(lipgloss.NewStyle().Foreground(ColorSurface1)).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerStyle
+			}
+			if columnStyle, ok := columnStyles[col]; ok {
+				return columnStyle
+			}
+			return cellStyle
+		})
 
-	row := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		cellStyle.Render(origStr),
-		compStyle.Render(compStr),
-		savedColorStyle.Render(savedStr),
-	)
-
-	table := lipgloss.JoinVertical(lipgloss.Left, header, row)
-	fmt.Println(borderStyle.Render(table))
+	fmt.Println(results)
 }

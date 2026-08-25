@@ -2,7 +2,6 @@ package palette
 
 import (
 	"bufio"
-	"dis/internal/util"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,7 +10,7 @@ import (
 
 func ghosttyConfigPath() string {
 	candidates := configPaths("ghostty", true, "config.ghostty", "config")
-	return util.FirstExistingFile(candidates...)
+	return firstExistingFile(candidates...)
 }
 
 func parseGhosttyPalette() *base16Palette {
@@ -82,7 +81,7 @@ func parseGhosttyColors(path string, p *base16Palette) {
 				continue
 			}
 			idx, err := strconv.Atoi(strings.TrimSpace(idxStr))
-			if err == nil && idx >= 0 && idx < 16 {
+			if err == nil && idx >= 0 && idx < len(p.Color) {
 				applyHex(&p.Color[idx], strings.TrimSpace(colorVal))
 			}
 		}
@@ -104,7 +103,7 @@ func resolveGhosttyTheme(name string, p *base16Palette, cfgPath string) {
 	for _, dir := range searchDirs {
 		for _, candidate := range []string{name, name + ".ghostty"} {
 			themePath := filepath.Join(dir, candidate)
-			if util.FileExists(themePath) {
+			if fileExists(themePath) {
 				parseGhosttyColors(themePath, p)
 				return
 			}

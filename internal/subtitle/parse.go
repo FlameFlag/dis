@@ -1,9 +1,17 @@
 package subtitle
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+)
+
+const (
+	timestampHoursCapture = iota + 1
+	timestampMinutesCapture
+	timestampSecondsCapture
+	timestampMillisCapture
 )
 
 // cueFormat captures the differences between subtitle formats consumed by the
@@ -67,7 +75,7 @@ func parseCues(data string, f cueFormat) (Transcript, error) {
 		switch current {
 		case stateSeeking:
 			line = strings.TrimSpace(line)
-			if line == "" || !arrowRe.MatchString(line) {
+			if line == "" || !strings.Contains(line, "-->") {
 				// Skip blanks, sequence numbers, cue identifiers, NOTE blocks.
 				continue
 			}
@@ -98,21 +106,21 @@ func parseCues(data string, f cueFormat) (Transcript, error) {
 }
 
 func parseTimestampLine(line string, f cueFormat) (float64, float64, error) {
-	parts := arrowRe.Split(line, 2)
-	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid timestamp line")
+	startText, endText, ok := strings.Cut(line, "-->")
+	if !ok {
+		return 0, 0, errors.New("invalid timestamp line")
 	}
 
-	start, err := parseTimestamp(strings.TrimSpace(parts[0]), f.timestampRe)
+	start, err := parseTimestamp(strings.TrimSpace(startText), f.timestampRe)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	endStr := strings.TrimSpace(parts[1])
+	endStr := strings.TrimSpace(endText)
 	if f.splitEnd {
 		fields := strings.Fields(endStr)
 		if len(fields) == 0 {
-			return 0, 0, fmt.Errorf("missing end timestamp")
+			return 0, 0, errors.New("missing end timestamp")
 		}
 		endStr = fields[0]
 	}
@@ -130,5 +138,10 @@ func parseTimestamp(ts string, re *regexp.Regexp) (float64, error) {
 	if m == nil {
 		return 0, fmt.Errorf("invalid timestamp: %s", ts)
 	}
-	return hmsToSeconds(m[1], m[2], m[3], m[4])
+	return hmsToSeconds(
+		m[timestampHoursCapture],
+		m[timestampMinutesCapture],
+		m[timestampSecondsCapture],
+		m[timestampMillisCapture],
+	)
 }

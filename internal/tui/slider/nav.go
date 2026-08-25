@@ -1,11 +1,10 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/keys"
-	"time"
+	"slices"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -14,58 +13,52 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, s.binding) {
 			m.adjustValue(s.step)
 			m.viewportLocked = true
-			return m, m.triggerAnim()
+			return m, nil
 		}
 	}
 
 	switch {
-	case key.Matches(msg, keys.Escape):
+	case key.Matches(msg, Escape):
 		m.cancelled = true
 		return m, tea.Quit
 
-	case key.Matches(msg, keys.Enter):
+	case key.Matches(msg, Enter):
 		m.confirmed = true
 		return m, tea.Quit
 
-	case key.Matches(msg, keys.SelectStart):
+	case key.Matches(msg, SelectStart):
 		m.adjustingStart = true
 		return m, nil
 
-	case key.Matches(msg, keys.SelectEnd):
+	case key.Matches(msg, SelectEnd):
 		m.adjustingStart = false
 		return m, nil
 
-	case key.Matches(msg, keys.Tab):
+	case key.Matches(msg, Tab):
 		m.adjustingStart = !m.adjustingStart
 		return m, nil
 
-	case key.Matches(msg, keys.Space):
+	case key.Matches(msg, Space):
 		m.mode = modeInput
 		m.timeInput.Reset()
 		return m, m.timeInput.Focus()
 
-	case key.Matches(msg, keys.PageUp):
+	case key.Matches(msg, PageUp):
 		if m.transcript != nil {
 			m.viewportLocked = false
-			m.transcriptOffset -= TranscriptVisibleCues
-			if m.transcriptOffset < 0 {
-				m.transcriptOffset = 0
-			}
+			m.transcriptOffset = max(m.transcriptOffset-TranscriptVisibleCues, 0)
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.PageDown):
+	case key.Matches(msg, PageDown):
 		if m.transcript != nil {
 			m.viewportLocked = false
-			m.transcriptOffset += TranscriptVisibleCues
 			maxOffset := max(len(m.transcript)-TranscriptVisibleCues, 0)
-			if m.transcriptOffset > maxOffset {
-				m.transcriptOffset = maxOffset
-			}
+			m.transcriptOffset = min(m.transcriptOffset+TranscriptVisibleCues, maxOffset)
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.Search):
+	case key.Matches(msg, Search):
 		if m.transcript != nil {
 			m.mode = modeSearch
 			m.search.input.Reset()
@@ -75,80 +68,74 @@ func (m Model) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.NextCue):
+	case key.Matches(msg, NextCue):
 		if m.transcript != nil {
 			m.snapToNextCue()
 			m.viewportLocked = true
-			return m, m.triggerAnim()
+			return m, nil
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.PrevCue):
+	case key.Matches(msg, PrevCue):
 		if m.transcript != nil {
 			m.snapToPrevCue()
 			m.viewportLocked = true
-			return m, m.triggerAnim()
+			return m, nil
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.NextMatch):
+	case key.Matches(msg, NextMatch):
 		if m.transcript != nil && len(m.search.results) > 0 {
 			m.search.index = (m.search.index + 1) % len(m.search.results)
 			m.snapToCueSearchResult()
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.PrevMatch):
+	case key.Matches(msg, PrevMatch):
 		if m.transcript != nil && len(m.search.results) > 0 {
 			m.search.index = (m.search.index - 1 + len(m.search.results)) % len(m.search.results)
 			m.snapToCueSearchResult()
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.TranscriptSelect):
+	case key.Matches(msg, TranscriptSelect):
 		if m.transcript != nil && len(m.words) > 0 {
 			m.mode = modeSelect
 			m.sel.cursor = m.nearestWordIndex(m.activePos())
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.Split):
+	case key.Matches(msg, Split):
 		// Save current range as a split (guard: end > start)
 		if m.endPos > m.startPos {
 			m.splits = append(m.splits, trimRange{start: m.startPos, end: m.endPos})
 			m.startPos = 0
 			m.endPos = m.duration
 		}
-		return m, m.triggerAnim()
+		return m, nil
 
-	case key.Matches(msg, keys.DeleteSplit):
+	case key.Matches(msg, DeleteSplit):
 		// Pop last saved split
 		if len(m.splits) > 0 {
 			m.splits = m.splits[:len(m.splits)-1]
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.GIFToggle):
+	case key.Matches(msg, GIFToggle):
 		if !m.gifAvailable {
-			m.warning = "gifski not found - install: brew install gifski"
-			m.warningExpiry = time.Now().Add(2 * time.Second)
+			m.warning = "GIF export needs gifski. Install it with: brew install gifski"
+			return m, expireWarning(m.warning)
 		} else {
 			m.gifMode = !m.gifMode
 		}
 		return m, nil
 
-	case key.Matches(msg, keys.SpeedToggle):
-		switch m.speedMultiplier {
-		case 1.0:
-			m.speedMultiplier = 1.5
-		case 1.5:
-			m.speedMultiplier = 2.0
-		default:
-			m.speedMultiplier = 1.0
-		}
+	case key.Matches(msg, SpeedToggle):
+		index := slices.Index(playbackSpeeds[:], m.speedMultiplier)
+		m.speedMultiplier = playbackSpeeds[(index+1)%len(playbackSpeeds)]
 		return m, nil
 
-	case key.Matches(msg, keys.Cancel):
+	case key.Matches(msg, Cancel):
 		m.cancelled = true
 		return m, tea.Quit
 	}

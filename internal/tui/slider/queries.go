@@ -1,11 +1,12 @@
 package slider
 
 import (
-	"dis/internal/sponsorblock"
-	"dis/internal/util"
 	"fmt"
 	"math"
 	"unicode"
+
+	"github.com/4evy/dis/internal/sponsorblock"
+	"github.com/4evy/dis/internal/timecode"
 )
 
 func (m Model) isSelectMode() bool {
@@ -16,27 +17,26 @@ func (m Model) isSearchMode() bool {
 	return m.mode == modeSearch || m.mode == modeSearchSelect
 }
 
-func (m Model) sliderWidth() int {
-	w := max(m.leftPaneWidth()-2, MinSliderWidth) // 2 for inner padding
-	return w
-}
-
 func (m Model) isTwoPane() bool {
 	return m.width >= MinTwoPaneWidth && m.transcript != nil
 }
 
+func (m Model) isStacked() bool {
+	return !m.isTwoPane() && m.transcript != nil
+}
+
 func (m Model) leftPaneWidth() int {
 	if m.isTwoPane() {
-		return m.width * LeftPaneRatio / 100
+		return m.width * LeftPaneRatio / percentageBase
 	}
-	return m.width - 2 // single column: 1 border each side
+	return m.width - singlePaneBorderCells
 }
 
 func (m Model) rightPaneWidth() int {
 	if !m.isTwoPane() {
 		return 0
 	}
-	return m.width - m.leftPaneWidth() - 3 // 3 for border chars (│ left border + │ divider + │ right border)
+	return m.width - m.leftPaneWidth() - twoPaneBorderCells
 }
 
 // sponsorCategoryAt returns the SponsorBlock category for a given timestamp, or empty string.
@@ -59,35 +59,40 @@ func (m Model) activePos() float64 {
 func (m *Model) adjustValue(step float64) {
 	if m.adjustingStart {
 		newStart := m.startPos + step
-		m.startPos = math.Max(0, math.Min(m.endPos-MillisecondStep, newStart))
+		m.startPos = max(0, min(m.endPos-MillisecondStep, newStart))
 	} else {
 		newEnd := m.endPos + step
-		m.endPos = math.Max(m.startPos+MillisecondStep, math.Min(m.duration, newEnd))
+		m.endPos = max(m.startPos+MillisecondStep, min(m.duration, newEnd))
 	}
 	m.roundPositions()
 }
 
 func (m *Model) roundPositions() {
-	m.startPos = math.Round(m.startPos*100) / 100
-	m.endPos = math.Round(m.endPos*100) / 100
+	m.startPos = math.Round(m.startPos*positionRoundingScale) / positionRoundingScale
+	m.endPos = math.Round(m.endPos*positionRoundingScale) / positionRoundingScale
 }
 
-func (m *Model) processTimeInput() {
-	seconds, err := util.ParseTimeValue(m.timeInput.Value())
+func (m *Model) processTimeInput() error {
+	seconds, err := timecode.Parse(m.timeInput.Value())
 	if err != nil {
-		return
+		return err
 	}
 
 	if m.adjustingStart {
-		if seconds >= 0 && seconds <= m.endPos-MillisecondStep {
-			m.startPos = seconds
+		if seconds < 0 || seconds > m.endPos-MillisecondStep {
+			return fmt.Errorf("start must be before %s", timecode.FormatMillis(m.endPos))
 		}
+		m.startPos = seconds
 	} else {
-		if seconds >= m.startPos+MillisecondStep && seconds <= m.duration {
-			m.endPos = seconds
+		if seconds < m.startPos+MillisecondStep || seconds > m.duration {
+			return fmt.Errorf("end must be between %s and %s",
+				timecode.FormatMillis(m.startPos),
+				timecode.FormatMillis(m.duration))
 		}
+		m.endPos = seconds
 	}
 	m.roundPositions()
+	return nil
 }
 
 func validateTimeInput(s string) error {

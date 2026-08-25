@@ -1,10 +1,10 @@
 package tui
 
 import (
-	"dis/internal/tui/palette"
+	"github.com/4evy/dis/internal/tui/palette"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
+	"charm.land/lipgloss/v2"
+	"charm.land/log/v2"
 )
 
 var (

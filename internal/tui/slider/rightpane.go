@@ -1,8 +1,9 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/style"
 	"fmt"
+
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) renderRightPaneWithHeight(width int, height int) string {
@@ -16,9 +17,33 @@ func (m Model) renderRightPaneWithHeight(width int, height int) string {
 }
 
 func (m Model) renderSearchInput() string {
-	matchInfo := ""
-	if m.search.input.Value() != "" {
-		matchInfo = fmt.Sprintf("  (%d matches)", len(m.search.results))
+	matchText := "Type a title or phrase"
+	matchStyle := Faint
+	if m.search.input.Value() != "" && len(m.search.results) == 0 {
+		matchText = "No matches"
+		matchStyle = Warn
+	} else if len(m.search.results) > 0 {
+		matchText = fmt.Sprintf(
+			"Match %d of %d",
+			m.search.index+1,
+			len(m.search.results),
+		)
 	}
-	return " " + style.Accent.Render("/") + " " + m.search.input.View() + style.Faint.Render(matchInfo)
+	label := AccentBold.Render("Search")
+	availableWidth := max(m.width-singlePaneBorderCells, 1)
+	if availableWidth < compactSearchWidth && m.search.input.Value() == "" {
+		matchText = "Type to search"
+	}
+	matchInfo := matchStyle.Render(matchText)
+	prefix := " " + label + "  "
+	suffix := "  " + matchInfo
+	fixedWidth := lipgloss.Width(prefix + suffix)
+	inputWidth := max(
+		availableWidth-fixedWidth-1, // textinput reserves a cell for its cursor
+		minimumSearchInputWidth,
+	)
+	input := m.search.input
+	input.SetWidth(inputWidth)
+	input.SetCursor(input.Position())
+	return prefix + input.View() + suffix
 }

@@ -1,20 +1,19 @@
 package slider
 
 import (
-	"dis/internal/config"
-	"dis/internal/sponsorblock"
-	"dis/internal/storyboard"
-	"dis/internal/subtitle"
-	"dis/internal/tui/slider/keys"
+	"context"
 	"fmt"
-	"os/exec"
-	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/harmonica"
+	"github.com/4evy/dis/internal/media"
+	"github.com/4evy/dis/internal/sponsorblock"
+	"github.com/4evy/dis/internal/storyboard"
+	"github.com/4evy/dis/internal/subtitle"
+
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 type sliderMode int
@@ -33,11 +32,21 @@ type ChapterMarker struct {
 	Title     string
 }
 
-// TrimResult holds one or more trim segments from the slider.
-type TrimResult struct {
-	Segments []config.TrimSettings
-	GIF      bool
-	Speed    float64
+// Options contains all synchronous and asynchronous slider inputs.
+type Options struct {
+	Duration        float64
+	Chapters        []media.Chapter
+	Transcript      <-chan subtitle.Transcript
+	Storyboard      <-chan *storyboard.StoryboardData
+	SponsorSegments <-chan []sponsorblock.Segment
+	GIFAvailable    bool
+	GIF             bool
+}
+
+// State contains non-clip choices made in the slider.
+type State struct {
+	GIF   bool
+	Speed float64
 }
 
 // selectState holds word-level selection mode state.
@@ -55,66 +64,61 @@ type searchState struct {
 	index   int   // current match position
 }
 
-// animState holds the spring-driven slider animation.
-type animState struct {
-	spring   harmonica.Spring
-	startPos float64
-	startVel float64
-	endPos   float64
-	endVel   float64
-	active   bool
-}
-
 // Model is the BubbleTea model for the trim slider.
 type Model struct {
-	duration       float64
-	startPos       float64
-	endPos         float64
-	adjustingStart bool
-	mode           sliderMode
-	timeInput      textinput.Model
-	confirmed      bool
-	cancelled      bool
-	width          int
-	chapters       []ChapterMarker
+	timelineModel
+	transcriptModel
+	searchModel
+	helpModel
 
-	// Loading spinner
+	mode      sliderMode
+	confirmed bool
+	cancelled bool
+	width     int
+	height    int
+
 	loadingSpinner spinner.Model
 
-	// Transcript support (async)
-	transcript   subtitle.Transcript // nil until received
-	transcriptCh <-chan subtitle.Transcript
-	words        []subtitle.Word // flattened word list
-
-	sel    selectState
-	search searchState
-
-	// Storyboard (async)
 	storyboard   *storyboard.StoryboardData
 	storyboardCh <-chan *storyboard.StoryboardData
 
-	// SponsorBlock segments (async)
 	sponsorSegments []sponsorblock.Segment
 	sponsorSegsCh   <-chan []sponsorblock.Segment
 
-	// Transcript viewport
-	viewportLocked   bool // auto-follow mode (default true)
-	transcriptOffset int  // scroll offset in cues (used when unlocked)
-
-	// Saved splits
-	splits []trimRange
-
-	// GIF export
 	gifMode         bool
 	gifAvailable    bool
 	speedMultiplier float64
 	warning         string
-	warningExpiry   time.Time
+}
 
-	// Terminal height (for conditional thumbnail rendering)
-	height int
+type timelineModel struct {
+	duration       float64
+	startPos       float64
+	endPos         float64
+	adjustingStart bool
+	timeInput      textinput.Model
+	chapters       []ChapterMarker
+	splits         []trimRange
+}
 
-	anim animState
+type helpModel struct {
+	keyHelp     help.Model
+	helpVisible bool
+	helpScroll  int
+}
+
+type transcriptModel struct {
+	transcript   subtitle.Transcript // nil until received
+	transcriptCh <-chan subtitle.Transcript
+	words        []subtitle.Word // flattened word list
+
+	sel              selectState
+	viewportLocked   bool // auto-follow mode (default true)
+	transcriptOffset int  // scroll offset in cues (used when unlocked)
+}
+
+type searchModel struct {
+	search searchState
 }
 
 // trimRange represents a single trim range with start and end times.
@@ -123,102 +127,114 @@ type trimRange struct {
 	end   float64
 }
 
-var brailleSpinner = spinner.Spinner{
-	Frames: []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
-	FPS:    time.Second / 10,
-}
-
 func (m Model) isLoading() bool {
 	return m.storyboardCh != nil ||
 		m.transcriptCh != nil || m.sponsorSegsCh != nil
 }
 
 // New creates a new trim slider model.
-func New(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) Model {
-	_, gifErr := exec.LookPath("gifski")
+func New(options Options) Model {
+	chapters := make([]ChapterMarker, 0, len(options.Chapters))
+	for _, chapter := range options.Chapters {
+		chapters = append(chapters, ChapterMarker{
+			StartTime: chapter.Clip.Start,
+			Title:     chapter.Title,
+		})
+	}
 	si := textinput.New()
 	si.Prompt = ""
+	si.Placeholder = "title or phrase"
 	ti := textinput.New()
 	ti.Prompt = ""
+	ti.Placeholder = "mm:ss.mmm"
+	ti.CharLimit = timeInputCharacterLimit
 	ti.Validate = validateTimeInput
+	kh := help.New()
+	kh.ShortSeparator = "  ·  "
+	kh.Styles.ShortKey = HelpKey
+	kh.Styles.ShortDesc = HelpDesc
+	kh.Styles.ShortSeparator = HelpSep
+	kh.Styles.FullKey = HelpKey
+	kh.Styles.FullDesc = HelpDesc
+	kh.Styles.Ellipsis = HelpSep
 	return Model{
-		loadingSpinner:  spinner.New(spinner.WithSpinner(brailleSpinner)),
-		search:          searchState{input: si},
-		timeInput:       ti,
-		duration:        duration,
-		startPos:        0,
-		endPos:          duration,
-		adjustingStart:  true,
-		chapters:        chapters,
-		transcriptCh:    transcriptCh,
-		storyboardCh:    storyboardCh,
-		sponsorSegsCh:   sponsorSegsCh,
+		timeInput: ti, duration: options.Duration,
+		endPos: options.Duration, adjustingStart: true, chapters: chapters,
+		transcriptCh:    options.Transcript,
 		viewportLocked:  true,
 		sel:             selectState{anchor: -1},
-		gifMode:         gifEnabled,
-		gifAvailable:    gifErr == nil,
-		speedMultiplier: 1.0,
-		anim: animState{
-			spring: harmonica.NewSpring(harmonica.FPS(AnimFPS), SpringFreq, SpringDamping),
-			endPos: duration,
-		},
+		search:          searchState{input: si},
+		keyHelp:         kh,
+		loadingSpinner:  spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		storyboardCh:    options.Storyboard,
+		sponsorSegsCh:   options.SponsorSegments,
+		gifMode:         options.GIF,
+		gifAvailable:    options.GIFAvailable,
+		speedMultiplier: playbackSpeeds[0],
 	}
 }
 
-// Result returns the TrimResult if confirmed, nil if cancelled.
-func (m Model) Result() *TrimResult {
+// Result returns neutral clips, or nil when the slider was cancelled.
+func (m Model) Result() []media.Clip {
 	if m.cancelled {
 		return nil
 	}
 
-	result := &TrimResult{GIF: m.gifMode, Speed: m.speedMultiplier}
-
 	// Saved splits take priority
 	if len(m.splits) > 0 {
+		clips := make([]media.Clip, 0, len(m.splits))
 		for _, r := range m.splits {
-			result.Segments = append(result.Segments, config.TrimSettings{
+			clips = append(clips, media.Clip{
 				Start:    r.start,
 				Duration: r.end - r.start,
 			})
 		}
-		return result
+		return clips
 	}
 
 	// If word selection was used and has selections, use those segments
 	if m.mode == modeSelect || m.hasWordSelection() {
 		segs := m.selectedSegments()
 		if len(segs) > 0 {
-			result.Segments = segs
-			return result
+			return segs
 		}
 	}
 
 	// Default: single segment from slider handles
-	result.Segments = []config.TrimSettings{
+	return []media.Clip{
 		{
 			Start:    m.startPos,
 			Duration: m.endPos - m.startPos,
 		},
 	}
-	return result
+}
+
+// State returns the current format choices.
+func (m Model) State() State {
+	return State{GIF: m.gifMode, Speed: m.speedMultiplier}
 }
 
 // Run launches the trim slider as a full-screen BubbleTea program.
-func Run(duration float64, transcriptCh <-chan subtitle.Transcript, storyboardCh <-chan *storyboard.StoryboardData, sponsorSegsCh <-chan []sponsorblock.Segment, gifEnabled bool, chapters ...ChapterMarker) (*TrimResult, error) {
-	m := New(duration, transcriptCh, storyboardCh, sponsorSegsCh, gifEnabled, chapters...)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+func Run(ctx context.Context, options Options) ([]media.Clip, State, error) {
+	m := New(options)
+	p := tea.NewProgram(m, tea.WithContext(ctx))
 
 	finalModel, err := p.Run()
 	if err != nil {
-		return nil, fmt.Errorf("trim slider error: %w", err)
+		if ctx.Err() != nil {
+			return nil, State{}, ctx.Err()
+		}
+		return nil, State{}, fmt.Errorf("trim slider error: %w", err)
 	}
 
 	m, ok := finalModel.(Model)
 	if !ok {
-		return nil, fmt.Errorf("trim slider: unexpected model type %T", finalModel)
+		return nil, State{}, fmt.Errorf(
+			"trim slider: unexpected model type %T",
+			finalModel,
+		)
 	}
-	result := m.Result()
-	return result, nil
+	return m.Result(), m.State(), nil
 }
 
 // stepBinding maps a key binding to a time-step value for slider adjustment.
@@ -229,10 +245,10 @@ type stepBinding struct {
 
 // navigationSteps defines all keys that adjust the slider position by a fixed step.
 var navigationSteps = []stepBinding{
-	{keys.Left, -SecondStep},
-	{keys.Right, SecondStep},
-	{keys.ShiftLeft, -MillisecondStep},
-	{keys.ShiftRight, MillisecondStep},
-	{keys.Up, MinuteStep},
-	{keys.Down, -MinuteStep},
+	{Left, -SecondStep},
+	{Right, SecondStep},
+	{ShiftLeft, -MillisecondStep},
+	{ShiftRight, MillisecondStep},
+	{Up, MinuteStep},
+	{Down, -MinuteStep},
 }

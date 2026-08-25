@@ -1,11 +1,14 @@
 package subtitle
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 )
+
+const millisecondsPerSecond = 1_000.0
 
 type json3File struct {
 	Events []json3Event `json:"events"`
@@ -56,7 +59,7 @@ func ParseJSON3(data string) (Transcript, error) {
 			textParts = append(textParts, text)
 			timings = append(timings, WordTiming{
 				Text:  text,
-				Start: float64(ev.TStartMs+seg.TOffsetMs) / 1000.0,
+				Start: float64(ev.TStartMs+seg.TOffsetMs) / millisecondsPerSecond,
 			})
 		}
 
@@ -71,8 +74,8 @@ func ParseJSON3(data string) (Transcript, error) {
 		}
 
 		cue := Cue{
-			Start:       float64(ev.TStartMs) / 1000.0,
-			End:         float64(ev.TStartMs+ev.DDurationMs) / 1000.0,
+			Start:       float64(ev.TStartMs) / millisecondsPerSecond,
+			End:         float64(ev.TStartMs+ev.DDurationMs) / millisecondsPerSecond,
 			Text:        fullText,
 			WordTimings: timings,
 		}
@@ -80,7 +83,7 @@ func ParseJSON3(data string) (Transcript, error) {
 	}
 
 	if len(transcript) == 0 {
-		return nil, fmt.Errorf("json3: no cues found")
+		return nil, errors.New("json3: no cues found")
 	}
 
 	return transcript, nil

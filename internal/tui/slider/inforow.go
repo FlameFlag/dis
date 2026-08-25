@@ -1,32 +1,54 @@
 package slider
 
 import (
-	"dis/internal/tui/slider/style"
-	"dis/internal/util"
 	"fmt"
 	"strings"
+
+	"github.com/4evy/dis/internal/timecode"
+
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) renderInfoRow() string {
-	startStr := util.FormatDurationMillis(m.startPos)
-	endStr := util.FormatDurationMillis(m.endPos)
+	startStr := timecode.FormatMillis(m.startPos)
+	endStr := timecode.FormatMillis(m.endPos)
 	length := m.endPos - m.startPos
-	lengthStr := util.FormatDurationMillis(length)
+	lengthStr := timecode.FormatMillis(length)
 
+	startMarker := "○"
+	endMarker := "○"
+	startLabel := Faint.Render("Start")
+	endLabel := Faint.Render("End")
 	var styledStart, styledEnd string
 	if m.adjustingStart {
-		styledStart = style.AccentBold.Render(startStr)
-		styledEnd = style.Value.Render(endStr)
+		startMarker = AccentBold.Render("●")
+		startLabel = AccentBold.Render("Start")
+		styledStart = AccentBold.Render(startStr)
+		styledEnd = Value.Render(endStr)
 	} else {
-		styledStart = style.Value.Render(startStr)
-		styledEnd = style.AccentBold.Render(endStr)
+		endMarker = AccentBold.Render("●")
+		endLabel = AccentBold.Render("End")
+		styledStart = Value.Render(startStr)
+		styledEnd = AccentBold.Render(endStr)
 	}
 
-	info := fmt.Sprintf(" %s %s  %s %s  %s %s",
-		style.Faint.Render("start"), styledStart,
-		style.Faint.Render("end"), styledEnd,
-		style.Faint.Render("length"), style.Faint.Render(lengthStr))
-	return info
+	if m.leftPaneWidth() < compactInfoWidth {
+		compact := fmt.Sprintf(" %s %s  %s %s  %s %s",
+			startMarker, styledStart,
+			endMarker, styledEnd,
+			Faint.Render("Keep"), Faint.Render(lengthStr))
+		if lipgloss.Width(compact) > m.leftPaneWidth() {
+			return fmt.Sprintf(" %s %s  %s %s\n   %s %s",
+				startMarker, styledStart,
+				endMarker, styledEnd,
+				Faint.Render("Keep"), Faint.Render(lengthStr))
+		}
+		return compact
+	}
+	return fmt.Sprintf(" %s %s %s  %s %s %s  %s %s",
+		startMarker, startLabel, styledStart,
+		endMarker, endLabel, styledEnd,
+		Faint.Render("Keep"), Faint.Render(lengthStr))
 }
 
 func (m Model) renderSelectInfo() string {
@@ -40,7 +62,7 @@ func (m Model) renderSelectInfo() string {
 	}
 
 	if len(segs) == 0 {
-		return style.Faint.Render(" No words selected")
+		return Faint.Render(" No words selected")
 	}
 
 	segText := "segment"
@@ -49,41 +71,53 @@ func (m Model) renderSelectInfo() string {
 	}
 
 	return fmt.Sprintf(" %s %s · %s · %s",
-		style.Value.Render(fmt.Sprintf("%d %s", len(segs), segText)),
-		style.Faint.Render(util.FormatDurationShort(totalDur)),
-		style.Faint.Render("total"),
-		style.Faint.Render(fmt.Sprintf("%d/%d", selCount, totalWords)))
+		Value.Render(fmt.Sprintf("%d %s", len(segs), segText)),
+		Faint.Render(timecode.FormatShort(totalDur)),
+		Faint.Render("total"),
+		Faint.Render(fmt.Sprintf("%d/%d", selCount, totalWords)))
 }
 
 func (m Model) renderInlineInput() string {
 	inputView := m.timeInput.View()
 
-	startStr := util.FormatDurationMillis(m.startPos)
-	endStr := util.FormatDurationMillis(m.endPos)
+	startStr := timecode.FormatMillis(m.startPos)
+	endStr := timecode.FormatMillis(m.endPos)
 
+	if m.leftPaneWidth() < compactInfoWidth {
+		if m.adjustingStart {
+			return fmt.Sprintf(" %s %s  %s %s\n   %s %s",
+				AccentBold.Render("●"), inputView,
+				Faint.Render("○"), Value.Render(endStr),
+				Faint.Render("Keep"), Faint.Render("--:--.---"))
+		}
+		return fmt.Sprintf(" %s %s  %s %s\n   %s %s",
+			Faint.Render("○"), Value.Render(startStr),
+			AccentBold.Render("●"), inputView,
+			Faint.Render("Keep"), Faint.Render("--:--.---"))
+	}
 	if m.adjustingStart {
 		return fmt.Sprintf(" %s %s  %s %s  %s %s",
-			style.Faint.Render("start"), inputView,
-			style.Faint.Render("end"), style.Value.Render(endStr),
-			style.Faint.Render("length"), style.Faint.Render("--:--.---"))
+			Faint.Render("Start"), inputView,
+			Faint.Render("End"), Value.Render(endStr),
+			Faint.Render("Keep"), Faint.Render("--:--.---"))
 	}
 	return fmt.Sprintf(" %s %s  %s %s  %s %s",
-		style.Faint.Render("start"), style.Value.Render(startStr),
-		style.Faint.Render("end"), inputView,
-		style.Faint.Render("length"), style.Faint.Render("--:--.---"))
+		Faint.Render("Start"), Value.Render(startStr),
+		Faint.Render("End"), inputView,
+		Faint.Render("Keep"), Faint.Render("--:--.---"))
 }
 
 func (m Model) renderFormatBadge() string {
 	if m.gifMode {
-		badge := style.AccentBold.Render("GIF")
-		if m.speedMultiplier > 1.0 {
-			badge += " " + style.AccentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
+		badge := AccentBold.Render("GIF")
+		if m.speedMultiplier > playbackSpeeds[0] {
+			badge += " " + AccentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
 		}
 		return badge
 	}
-	badge := style.Faint.Render("MP4")
-	if m.speedMultiplier > 1.0 {
-		badge += " " + style.AccentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
+	badge := Faint.Render("MP4")
+	if m.speedMultiplier > playbackSpeeds[0] {
+		badge += " " + AccentBold.Render(fmt.Sprintf("%.1fx", m.speedMultiplier))
 	}
 	return badge
 }
@@ -94,8 +128,14 @@ func (m Model) renderLoadingStatus() string {
 	}
 	spinner := m.loadingSpinner.View()
 	var items []string
+	if m.transcriptCh != nil {
+		items = append(items, "transcript")
+	}
 	if m.storyboardCh != nil {
 		items = append(items, "storyboard")
 	}
-	return style.Faint.Render(spinner + " " + strings.Join(items, " · "))
+	if m.sponsorSegsCh != nil {
+		items = append(items, "SponsorBlock")
+	}
+	return Faint.Render(spinner + " " + strings.Join(items, " · "))
 }

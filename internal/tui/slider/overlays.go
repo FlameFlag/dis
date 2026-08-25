@@ -2,13 +2,15 @@ package slider
 
 import (
 	"bytes"
-	"dis/internal/sponsorblock"
-	"dis/internal/tui/slider/style"
-	"dis/internal/tui/slider/textbuf"
-	"dis/internal/util"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
+	"github.com/4evy/dis/internal/sponsorblock"
+	"github.com/4evy/dis/internal/timecode"
+
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -32,57 +34,41 @@ func (m Model) renderChapterLabels(width int) string {
 		return ""
 	}
 
-	buf := bytes.Repeat([]byte{' '}, width)
+	occupied := make([]bool, width)
+	var labels []*lipgloss.Layer
 
 	for _, ch := range chapters {
 		lbl := ch.title
 		maxLen := width / max(len(chapters), 1)
-		if len(lbl) > maxLen && maxLen > 3 {
+		if ansi.StringWidth(lbl) > maxLen && maxLen > 0 {
 			lbl = ansi.Truncate(lbl, maxLen, "…")
 		}
-		start := max(ch.pos-len(lbl)/2, 0)
-		if start+len(lbl) > width {
-			start = width - len(lbl)
+		labelWidth := ansi.StringWidth(lbl)
+		start := max(ch.pos-labelWidth/labelCenterDivisor, 0)
+		if start+labelWidth > width {
+			start = width - labelWidth
 		}
 		if start < 0 {
 			continue
 		}
-		if textbuf.HasOverlap(buf, start, len(lbl)) {
+		if slices.Contains(occupied[start:start+labelWidth], true) {
 			start = ch.pos + 1
-			if start+len(lbl) > width {
+			if start+labelWidth > width {
 				continue
 			}
-			if textbuf.HasOverlap(buf, start, len(lbl)) {
+			if slices.Contains(occupied[start:start+labelWidth], true) {
 				continue
 			}
 		}
-		textbuf.Place(buf, start, lbl)
-	}
-
-	result := string(buf)
-	var b strings.Builder
-	inText := false
-	var textStart int
-	for i := 0; i <= len(result); i++ {
-		if i < len(result) && result[i] != ' ' {
-			if !inText {
-				b.WriteString(result[textStart:i])
-				textStart = i
-				inText = true
-			}
-		} else {
-			if inText {
-				b.WriteString(style.Warm.Render(result[textStart:i]))
-				textStart = i
-				inText = false
-			}
+		for i := start; i < start+labelWidth; i++ {
+			occupied[i] = true
 		}
-	}
-	if textStart < len(result) {
-		b.WriteString(result[textStart:])
+		labels = append(labels, lipgloss.NewLayer(Warm.Render(lbl)).X(start))
 	}
 
-	return b.String()
+	canvas := lipgloss.NewCanvas(width, 1)
+	canvas.Compose(lipgloss.NewCompositor(labels...))
+	return canvas.Render()
 }
 
 func (m Model) renderSponsorSegments(width int) string {
@@ -102,14 +88,8 @@ func (m Model) renderSponsorSegments(width int) string {
 			}
 			continue
 		}
-		si := int(seg.Start / m.duration * float64(width))
-		ei := int(seg.End / m.duration * float64(width))
-		if si < 0 {
-			si = 0
-		}
-		if ei >= width {
-			ei = width - 1
-		}
+		si := max(int(seg.Start/m.duration*float64(width)), 0)
+		ei := min(int(seg.End/m.duration*float64(width)), width-1)
 		for i := si; i <= ei; i++ {
 			buf[i] = '_'
 			cats[i] = seg.Category
@@ -122,17 +102,38 @@ func (m Model) renderSponsorSegments(width int) string {
 			b.WriteByte(' ')
 			continue
 		}
-		sc, ok := style.SponsorCategories[cats[i]]
+		sc, ok := SponsorCategories[cats[i]]
 		if !ok {
-			sc.Color = style.Dim
+			sc.Color = Dim
 		}
-		if cats[i] == sponsorblock.CategoryHighlight {
-			b.WriteString(sc.Color.Render("★"))
-		} else {
-			b.WriteString(sc.Color.Render("▁"))
+		glyph := sc.Glyph
+		if glyph == "" {
+			glyph = "•"
 		}
+		b.WriteString(sc.Color.Render(glyph))
 	}
 	return b.String()
+}
+
+func (m Model) renderSponsorLegend(width int) string {
+	seen := make(map[sponsorblock.Category]bool)
+	items := make([]string, 0, len(m.sponsorSegments))
+	for _, segment := range m.sponsorSegments {
+		if seen[segment.Category] {
+			continue
+		}
+		category, ok := SponsorCategories[segment.Category]
+		if !ok {
+			continue
+		}
+		seen[segment.Category] = true
+		items = append(items,
+			category.Color.Render(category.Glyph)+" "+Faint.Render(category.Label))
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	return ansi.Truncate(strings.Join(items, "  "), width, "…")
 }
 
 func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
@@ -140,7 +141,7 @@ func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 		return nil
 	}
 
-	panelWidth := min(width, 56)
+	panelWidth := min(width, splitsPanelMaxWidth)
 
 	var lines []string
 	var totalDur float64
@@ -149,8 +150,8 @@ func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 	}
 
 	headerLabel := fmt.Sprintf("── splits (%d) ", len(m.splits))
-	fillLen := max(panelWidth-len(headerLabel), 1)
-	lines = append(lines, " "+style.Dim.Render(headerLabel+strings.Repeat("─", fillLen)))
+	fillLen := max(panelWidth-lipgloss.Width(headerLabel), 1)
+	lines = append(lines, " "+Dim.Render(headerLabel+strings.Repeat("─", fillLen)))
 
 	hidden := 0
 	visible := m.splits
@@ -160,22 +161,22 @@ func (m Model) renderSplitsPanelLines(width, maxVisible int) []string {
 	}
 
 	if hidden > 0 {
-		lines = append(lines, "   "+style.Faint.Render(fmt.Sprintf("… %d more above", hidden)))
+		lines = append(lines, "   "+Faint.Render(fmt.Sprintf("… %d more above", hidden)))
 	}
 
 	for i, s := range visible {
 		dur := s.end - s.start
 		line := fmt.Sprintf("   %s  %s - %s  %s",
-			style.Faint.Render(fmt.Sprintf("%d", hidden+i+1)),
-			style.Value.Render(util.FormatDurationShort(s.start)),
-			style.Value.Render(util.FormatDurationShort(s.end)),
-			style.Faint.Render("("+util.FormatDurationShort(dur)+")"))
+			Faint.Render(strconv.Itoa(hidden+i+1)),
+			Value.Render(timecode.FormatShort(s.start)),
+			Value.Render(timecode.FormatShort(s.end)),
+			Faint.Render("("+timecode.FormatShort(dur)+")"))
 		lines = append(lines, line)
 	}
 
-	footerLabel := fmt.Sprintf("──────── total %s ", util.FormatDurationShort(totalDur))
-	footerFill := max(panelWidth-len(footerLabel), 1)
-	lines = append(lines, " "+style.Dim.Render(footerLabel+strings.Repeat("─", footerFill)))
+	footerLabel := fmt.Sprintf("──────── total %s ", timecode.FormatShort(totalDur))
+	footerFill := max(panelWidth-lipgloss.Width(footerLabel), 1)
+	lines = append(lines, " "+Dim.Render(footerLabel+strings.Repeat("─", footerFill)))
 
 	return lines
 }
