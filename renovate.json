@@ -1,0 +1,75 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices"],
+  "timezone": "Europe/Sofia",
+  "schedule": ["before 6am on Monday"],
+  "minimumReleaseAge": "3 days",
+  "branchConcurrentLimit": 1,
+  "automerge": true,
+  "automergeType": "branch",
+  "platformAutomerge": false,
+  "prCreation": "approval",
+  "configMigration": false,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "automerge": true,
+    "automergeType": "branch",
+    "prCreation": "approval",
+    "vulnerabilityFixStrategy": "highest"
+  },
+  "nix": {
+    "enabled": true
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update Go tools pinned in GitHub workflows",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+_VERSION: (?<currentValue>\\S+)"
+      ],
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Update base images in inline Compose Dockerfiles",
+      "managerFilePatterns": ["/^docker-compose\\.ya?ml$/"],
+      "matchStrings": [
+        "FROM\\s+(?<depName>[\\w./-]+):(?<currentValue>[\\w.-]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Update Git references that do not publish timestamps",
+      "matchDatasources": ["git-refs"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Keep Go modules and the vendor tree in sync",
+      "matchManagers": ["gomod"],
+      "groupName": "Go dependencies",
+      "postUpdateOptions": ["gomodTidy", "gomodVendor"]
+    },
+    {
+      "description": "Update Go modules and Go tools together",
+      "matchDatasources": ["go"],
+      "groupName": "Go dependencies"
+    },
+    {
+      "description": "Update GitHub Actions together",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Update GoReleaser and its action together",
+      "matchDepNames": [
+        "goreleaser/goreleaser",
+        "goreleaser/goreleaser-action"
+      ],
+      "groupName": "GoReleaser"
+    }
+  ]
+}
