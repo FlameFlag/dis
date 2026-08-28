@@ -3,22 +3,22 @@ services:
     build:
       context: .
       dockerfile_inline: |
-        FROM debian:bookworm-slim
+        FROM docker.io/library/debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
         COPY dist/ /tmp/dist/
         RUN ARCH=$(dpkg --print-architecture) && \
-            PKG=$(find /tmp/dist -name "*_${ARCH}.deb" | head -1) && \
-            { test -n "${PKG}" || { echo "No .deb found in dist/ for arch ${ARCH}"; exit 1; }; } && \
-            apt-get update && apt-get install -y "${PKG}"
+            PKG=$(find /tmp/dist -name "*_$${ARCH}.deb" | head -1) && \
+            { test -n "$${PKG}" || { echo "No .deb found in dist/ for arch $${ARCH}"; exit 1; }; } && \
+            apt-get update && apt-get install -y "$${PKG}"
         RUN dis --version
 
   test-rpm:
     build:
       context: .
       dockerfile_inline: |
-        FROM fedora:latest
+        FROM docker.io/library/fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898
         COPY dist/ /tmp/dist/
         RUN ARCH=$(uname -m) && \
-            PKG=$(find /tmp/dist -name "*.${ARCH}.rpm" | head -1) && \
-            { test -n "${PKG}" || { echo "No .rpm found in dist/ for arch ${ARCH}"; exit 1; }; } && \
-            dnf install -y "${PKG}"
+            PKG=$(find /tmp/dist -name "*.$${ARCH}.rpm" | head -1) && \
+            { test -n "$${PKG}" || { echo "No .rpm found in dist/ for arch $${ARCH}"; exit 1; }; } && \
+            dnf install -y "$${PKG}"
         RUN dis --version

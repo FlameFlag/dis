@@ -1,7 +1,11 @@
 version: 2
 
+project_name: dis
+
 builds:
-  - env:
+  - id: binaries
+    binary: dis
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -10,20 +14,44 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
     ldflags:
-      - -s -w -X dis/cmd.Version={{ .Version }}
+      - -s -w -X main.version={{ .Version }}
+
+  - id: packages
+    binary: dis
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
 
 archives:
-  - formats: [binary]
-    format_overrides:
-      - goos: windows
-        formats: [binary]
+  - id: binaries
+    ids:
+      - binaries
+    formats:
+      - binary
+    name_template: "{{ .ProjectName }}{{ if not .IsSnapshot }}_{{ .Version }}{{ end }}_{{ .Os }}_{{ .Arch }}"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-rolling"
 
 nfpms:
-  - vendor: dis
-    homepage: https://github.com/flameflag/dis
-    maintainer: flame
-    description: A small and simple CLI and TUI tool designed to download, trim and compress videos for any website
+  - id: packages
+    ids:
+      - packages
+    vendor: 4evy
+    homepage: https://github.com/4evy/dis
+    maintainer: Evy <4evy@users.noreply.github.com>
+    description: >-
+      A CLI and TUI for downloading, trimming, and compressing videos
     license: MIT
     section: video
     formats:
@@ -31,6 +59,7 @@ nfpms:
       - rpm
     recommends:
       - ffmpeg
+      - gifski
       - yt-dlp
     file_name_template: "{{ .ConventionalFileName }}"
     deb:
@@ -39,10 +68,18 @@ nfpms:
     rpm:
       group: Unspecified
 
+checksum:
+  name_template: checksums.txt
+
+release:
+  preflight:
+    fail_on_error: true
+
 changelog:
+  sort: asc
   filters:
     include:
-      - "^feat"
-      - "^fix"
-      - "^refactor"
-      - "^perf"
+      - '^feat(\([^)]*\))?!?:'
+      - '^fix(\([^)]*\))?!?:'
+      - '^refactor(\([^)]*\))?!?:'
+      - '^perf(\([^)]*\))?!?:'
