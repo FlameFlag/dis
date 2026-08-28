@@ -6,13 +6,33 @@ version = "2"
 enable = ["goimports", "gofumpt"]
 
 [formatters.settings.gofumpt]
-module-path = "github.com/asciimoo/hister"
+module-path = "github.com/4evy/dis"
 
 [formatters.settings.goimports]
-local-prefixes = ["github.com/asciimoo"]
+local-prefixes = ["github.com/4evy/dis"]
 
 [linters]
-enable = ["modernize", "staticcheck", "ineffassign", "unused"]
+enable = [
+  "bodyclose",
+  "dupl",
+  "durationcheck",
+  "errorlint",
+  "exptostd",
+  "goconst",
+  "gocritic",
+  "ineffassign",
+  "makezero",
+  "misspell",
+  "mnd",
+  "modernize",
+  "perfsprint",
+  "prealloc",
+  "staticcheck",
+  "unparam",
+  "unused",
+  "usestdlibvars",
+  "wastedassign",
+]
 
 [linters.exclusions]
 paths = ["node_modules"]

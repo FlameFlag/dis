@@ -1,1 +1,2 @@
 deps.json linguist-vendored=true
+*.go text eol=lf
