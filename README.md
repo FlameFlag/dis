@@ -1,90 +1,99 @@
 # dis 🎥
 
-[![GitHub license](https://img.shields.io/github/license/FlameFlag/dis)](https://github.com/FlameFlag/dis/blob/master/LICENSE)
-[![GitHub release](https://img.shields.io/github/release/FlameFlag/dis)](https://github.com/FlameFlag/dis/releases)
-[![GitHub issues](https://img.shields.io/github/issues/FlameFlag/dis)](https://github.com/FlameFlag/dis/issues)
+[![GitHub
+license](https://img.shields.io/github/license/4evy/dis)](https://github.com/4evy/dis/blob/master/LICENSE)
+[![GitHub
+release](https://img.shields.io/github/release/4evy/dis)](https://github.com/4evy/dis/releases)
+[![GitHub
+issues](https://img.shields.io/github/issues/4evy/dis)](https://github.com/4evy/dis/issues)
 
-![dis_help](/.github/assets/dis_help.png)
+![The dis command-line help screen](/.github/assets/dis_help.png)
 
-**dis 🎥** is a small and simple CLI and TUI tool designed to download, trim and compress videos for any website
+`dis` is a CLI and TUI for downloading, trimming, and compressing videos. It
+uses yt-dlp for downloads and FFmpeg for video processing.
 
-## Building
+## Install
 
-### Go
+Install [FFmpeg](https://ffmpeg.org/download.html) and
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) first. GIF export also requires
+[gifski](https://github.com/ImageOptim/gifski).
 
-All you need is Go installed. Run:
+Download a binary, deb package, or RPM package from [GitHub
+Releases](https://github.com/4evy/dis/releases).
 
-```bash
+### Nix profile
+
+``` sh
+nix profile install github:4evy/dis
+```
+
+### Nix flake
+
+Add `dis` to your flake inputs:
+
+``` nix
+inputs.dis.url = "github:4evy/dis";
+```
+
+Use `dis.packages.${system}.default` wherever you define the packages for a
+system.
+
+## Build
+
+Build with Go:
+
+``` sh
 go build -o dis .
 ```
 
-### Nix
+Or build with Nix:
 
-Simply run `nix build .#default`
-
-Alternatively you can also invoke a `nix shell github:FlameFlag/dis` with the
-required packages to build **dis** 🎥
-
-## Installation
-
-To install **dis** 🎥, you need to have [FFmpeg](https://ffmpeg.org/download.html) and [YT-DLP](https://github.com/yt-dlp/yt-dlp) installed on your system. You can download them from their official websites or use your package manager of choice.
-
-You can then download the latest release of **dis** 🎥 from the [Releases](https://github.com/FlameFlag/dis/releases) tab on GitHub. Alternatively, you can clone this repository and build the project yourself using `go build`.
-
-### If you're using Nix
-
-#### Using `nix profile`
-
-```bash
-nix profile install github:FlameFlag/dis
+``` sh
+nix build
 ```
 
-#### Using flakes
+Run the local checks with `just`:
 
-You will need to add **dis** 🎥 to your inputs and pass it down your outputs
-
-```nix
-{
-  # ...
-
-  inputs = {
-    # ...
-    dis.url = "github:FlameFlag/dis";
-    dis.inputs.nixpkgs.follows = "nixpkgs";
-    # ...
-  };
-
-  outputs = {
-    # ...
-    dis,
-    # ...
-  }
-}
+``` sh
+just test
+just lint
+just test-packages
 ```
 
-After that in whichever `.nix` file is responsible for your packages you will need to add **dis** 🎥
+## Browser cookies
 
-Example:
+For web URLs, `dis` automatically finds Chrome, Chromium, Brave, Edge, Helium,
+and Firefox profiles. It asks the installed yt-dlp to validate each browser
+session against the requested URL, uses the first working session, and falls
+back to no cookies when none work. This works with current and future yt-dlp
+extractors without maintaining a separate site list in `dis`.
 
-```nix
-{ pkgs, dis, ... }: {
-  environment = {
-    # ...
-    systemPackages = builtins.attrValues {
-        # ...
-        dis = dis.packages.${pkgs.system}.default;
-        # ...
-    };
-  };
-}
+Firefox containers are treated as separate sessions. `dis` exports each
+session to an owner-only temporary cookie jar, reports the profile it selects,
+and removes every jar when the command exits.
+
+Use `--cookies-from-browser` to override automatic selection or to load a
+specific profile:
+
+``` sh
+dis --cookies-from-browser helium:~/.config/net.imput.helium/Default URL
+dis --cookies-from-browser firefox:default-release URL
 ```
 
-## Contributing
+Linux Secret Service and KWallet, macOS Keychain, and Windows DPAPI are
+handled automatically, so don't add yt-dlp's `+KEYRING` suffix. Helium's
+distinct macOS Keychain entry is supported too.
 
-If you want to contribute to **dis** 🎥, you are welcome to do so. You can
-report issues, request features, or submit pull requests on GitHub.
+You can also set `cookies_from_browser` in `~/.config/dis/config.toml`.
+Current Chrome and Edge releases on Windows may use `v20` app-bound
+encryption, which third-party processes can't decrypt. Use Firefox on Windows
+when that applies.
+
+## Contribute
+
+Open a [GitHub issue](https://github.com/4evy/dis/issues) to report a bug or
+request a feature.
 
 ## License
 
-**dis** is licensed under the
-[MIT](https://github.com/FlameFlag/dis/blob/master/LICENSE).
+`dis` is available under the [MIT License](LICENSE).
